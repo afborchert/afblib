@@ -47,10 +47,10 @@ Andreas F. Borchert
 
 */
 
-#include <afblib/outbuf_printf.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <afblib/outbuf_printf.h>
 
 int outbuf_printf(outbuf* obuf, const char* restrict format, ...) {
    va_list ap;

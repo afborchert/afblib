@@ -177,16 +177,16 @@ Andreas F. Borchert
 
 */
 
-#include <afblib/mpx_session.h>
-#include <afblib/multiplexor.h>
-#include <afblib/sliding_buffer.h>
 #include <assert.h>
 #include <pcre.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <afblib/mpx_session.h>
+#include <afblib/multiplexor.h>
+#include <afblib/sliding_buffer.h>
 
 /* global data structure which is passed through the mpx_handle pointer */
 typedef struct mpx_service {

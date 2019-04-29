@@ -91,10 +91,10 @@ Andreas F. Borchert
 */
 
 #include <errno.h>
-#include <stralloc.h>
-#include <string.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stralloc.h>
+#include <string.h>
 #include <afblib/outbuf.h>
 
 /* works like write(2) but to obuf */

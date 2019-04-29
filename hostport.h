@@ -17,8 +17,8 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#ifndef AFBLIB_HOSTPORT
-#define AFBLIB_HOSTPORT
+#ifndef AFBLIB_HOSTPORT_H
+#define AFBLIB_HOSTPORT_H
 
 #include <stdbool.h>
 #include <sys/socket.h>

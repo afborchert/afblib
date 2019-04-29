@@ -21,8 +21,8 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <unistd.h>
 #include <stralloc.h>
+#include <unistd.h>
 
 typedef struct inbuf {
    int fd;

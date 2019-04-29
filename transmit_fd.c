@@ -51,12 +51,12 @@ remain intact. This should have no extra costs in case of
 UNIX domain sockets.
 
 File descriptors are always sent along with a message.
-In cae of I<send_fd_and_message> and I<recv_fd_and_message>
+In case of I<send_fd_and_message> and I<recv_fd_and_message>
 the message can be explicitly sent and received. Otherwise,
 if no message is needed, I<send_fd> and I<recv_fd> provide
 a simpler interface. A small message consisting of one byte
 is sent nonetheless to distinguish a successful delivery from
-end of input.
+the end of input.
 
 All four functions accept the socket file descriptor _sfd_
 as first parameter. This must be a UNIX domain socket.

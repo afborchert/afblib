@@ -63,9 +63,9 @@ Andreas F. Borchert
 
 */
 
-#include <afblib/sliding_buffer.h>
-#include <string.h>
 #include <stralloc.h>
+#include <string.h>
+#include <afblib/sliding_buffer.h>
 
 #define THRESHOLD 64  /* should be similar to the size of a cache line */
 

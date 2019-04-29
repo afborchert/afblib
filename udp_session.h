@@ -19,8 +19,8 @@
 #ifndef AFBLIB_UDP_SESSION_H
 #define AFBLIB_UDP_SESSION_H
 
-#include <afblib/hostport.h>
 #include <stdbool.h>
+#include <afblib/hostport.h>
 
 typedef struct udp_connection {
    int fd;

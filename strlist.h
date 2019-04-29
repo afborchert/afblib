@@ -16,6 +16,7 @@
    License along with this library; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
+
 /*
  * Data structure for dynamic string lists that works
  * similar to the stralloc library.
@@ -26,8 +27,8 @@
 #ifndef AFBLIB_STRLIST_H
 #define AFBLIB_STRLIST_H
 
-#include <stddef.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct strlist {
    char** list;

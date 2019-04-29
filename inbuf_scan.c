@@ -226,12 +226,12 @@ Andreas F. Borchert
 */
 
 #include <assert.h>
+#include <pcre.h>
 #include <stdarg.h>
 #include <stdbool.h>
-#include <stdlib.h>
-#include <pcre.h>
-#include <stralloc.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <stralloc.h>
 #include <afblib/inbuf_scan.h>
 
 struct pcre_handle;

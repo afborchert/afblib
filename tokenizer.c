@@ -65,9 +65,9 @@ Andreas F. Borchert
  */
 
 #include <ctype.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stralloc.h>
-#include <stdbool.h>
 #include <afblib/strlist.h>
 #include <afblib/tokenizer.h>
 

@@ -1,1 +1,9 @@
+*.tar.gz
+*.tmp
+afblib-*
+libafb.a
+libafb.so.0
+mk_release
+shared
+static
 www

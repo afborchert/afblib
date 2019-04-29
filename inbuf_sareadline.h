@@ -19,8 +19,9 @@
 #ifndef AFBLIB_SA_READLINE_H
 #define AFBLIB_SA_READLINE_H
 
-#include <afblib/inbuf.h>
 #include <stralloc.h>
+#include <afblib/inbuf.h>
+
 bool inbuf_sareadline(inbuf* ibuf, stralloc* sa);
 
 #endif

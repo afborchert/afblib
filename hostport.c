@@ -87,13 +87,12 @@ Andreas F. Borchert
 
 */
 
-#include <afblib/hostport.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <stralloc.h>
 #include <string.h>
 #include <sys/un.h>
-#include "hostport.h"
+#include <afblib/hostport.h>
 
 typedef struct inbuf {
    const char* buf;

@@ -22,8 +22,8 @@
 #include <stdarg.h>
 #include <stralloc.h>
 #include <sys/types.h>
-#include <afblib/multiplexor.h>
 #include <afblib/hostport.h>
+#include <afblib/multiplexor.h>
 #include <afblib/sliding_buffer.h>
 
 typedef struct session {

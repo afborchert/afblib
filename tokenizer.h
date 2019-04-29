@@ -16,12 +16,14 @@
    License along with this library; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
-#ifndef AFBLIB_TOKENIZER_H
 
+#ifndef AFBLIB_TOKENIZER_H
 #define AFBLIB_TOKENIZER_H
-#include <stralloc.h>
+
 #include <stdbool.h>
+#include <stralloc.h>
 #include <afblib/strlist.h>
+
 bool tokenizer(stralloc* input, strlist* tokens);
 
 #endif

@@ -19,9 +19,9 @@
 #ifndef AFBLIB_OUTBUF_H
 #define AFBLIB_OUTBUF_H
 
-#include <stralloc.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stralloc.h>
 #include <unistd.h>
 
 typedef struct outbuf {

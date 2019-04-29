@@ -93,8 +93,8 @@ Andreas F. Borchert
 */
 
 #include <assert.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <afblib/strhash.h>
 
 /* hash algorithm stolen from Dan Bernstein's cdbhash.c */

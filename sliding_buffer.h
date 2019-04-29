@@ -20,8 +20,8 @@
 #define AFBLIB_SLIDING_BUFFER_H
 
 #include <stdbool.h>
-#include <stralloc.h>
 #include <stddef.h>
+#include <stralloc.h>
 
 /*
    this sliding buffer is a datastructure where we just add data
