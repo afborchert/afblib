@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities based on the dietlib by fefe
-   Copyright (C) 2003, 2008, 2017 Andreas Franz Borchert
+   Copyright (C) 2003, 2008, 2017, 2019 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -38,7 +38,10 @@ pconnect -- create a pipeline to a given command
 	 int mode, pipe_end* pipe_con);
    bool pconnect2(const char* path, char* const* argv,
          int mode, int fd, pipe_end* pipe_con);
-   bool phangup(pipe_end* pipe_end);
+   bool phangup(pipe_end* pipe_con);
+   bool pshare(pipe_end* pipe_con);
+   bool pcut(pipe_end* pipe_con);
+   bool pwait(pipe_end* pipe_con);
 
 =head1 DESCRIPTION
 
@@ -55,6 +58,19 @@ process to terminate and returns its status in the I<wstat> field.
 I<pconnect2> works similar to I<pconnect> but connects in the spawned off
 process I<fd> to the remaining standard input or output file descriptor
 not connected to the pipeline. This allows pipelines to be chained.
+However, I<fd> needs to be shared using I<pshare> (see below) if
+this file descriptor belong to another pipe end returned by
+I<pconnect> or I<pconnect2>.
+
+All pipe ends returned by I<pconnect> and I<pconnect2> are protected
+against being inherited through I<fork> or I<exec>. This protection
+can be lifted using I<pshare>. This is necessary if a pipe end
+is to be passed on to a child. In case of a shared pipe end
+I<pcut> and I<pwait> can be used instead of I<phangup>. I<pcut>
+closes the file descriptor associated with the pipe end while
+I<pwait> waits for the associated process to terminate.
+This separation allows I<pcut> to be invoked immediately after
+the I<fork> on the parent side.
 
 =head1 DIAGNOSTICS
 
@@ -93,7 +109,6 @@ Andreas F. Borchert
 */
 #include <fcntl.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <sys/select.h>
 #include <sys/wait.h>
@@ -125,65 +140,93 @@ static bool add_fd(int fd) {
    return true;
 }
 
-static void remove_fd(int fd) {
-   FD_CLR(fd, &pipes);
+static bool remove_fd(int fd) {
+   if (FD_ISSET(fd, &pipes)) {
+      FD_CLR(fd, &pipes);
+      return true;
+   } else {
+      return false;
+   }
 }
 
-/*
- * create a pipeline to the given command;
- * mode should be either PIPE_READ or PIPE_WRITE;
- * return a filled pipe_end structure and true on success
- * and false in case of failures
- */
+static bool share_fd(int fd) {
+   if (!remove_fd(fd)) {
+      return false;
+   }
+   int flags = fcntl(fd, F_GETFD);
+   flags &= ~FD_CLOEXEC;
+   fcntl(fd, F_SETFD, flags);
+   return true;
+}
+
+/* create a pipeline to the given command;
+   mode should be either PIPE_READ or PIPE_WRITE;
+   return a filled pipe_end structure and true on success
+   and false in case of failures */
 bool pconnect(const char* path, char* const* argv,
       int mode, pipe_end* pipe_con) {
    return pconnect2(path, argv, mode, mode, pipe_con);
 }
 
-/*
- * like pconnect() but connect fd to the standard input
- * or output file descriptor that is not connected to the pipe
- */
+/* like pconnect() but connect fd to the standard input
+   or output file descriptor that is not connected to the pipe */
 bool pconnect2(const char* path, char* const* argv,
       int mode, int fd, pipe_end* pipe_con) {
    int pipefds[2];
-   if (pipe(pipefds) < 0) return 0;
-   int myside = mode; int otherside = 1 - mode;
+   if (pipe(pipefds) < 0) return false;
+   int parent_side = mode; int child_side = 1 - mode;
    pid_t child = fork();
    if (child < 0) {
       close(pipefds[0]); close(pipefds[1]);
-      return 0;
+      return false;
    }
    if (child == 0) {
-      close(pipefds[myside]);
-      dup2(pipefds[otherside], otherside);
-      close(pipefds[otherside]);
-      if (fd != myside) {
-	 dup2(fd, myside); close(fd);
+      close(pipefds[parent_side]);
+      dup2(pipefds[child_side], child_side);
+      close(pipefds[child_side]);
+      if (fd != parent_side) {
+	 dup2(fd, parent_side); close(fd);
       }
       execvp(path, argv); exit(255);
    }
-   close(pipefds[otherside]);
+   close(pipefds[child_side]);
    /* make sure that our side is closed for forked-off childs */
-   if (!add_fd(pipefds[myside])) return false;
+   if (!add_fd(pipefds[parent_side])) return false;
    /* make sure that our side is closed when we exec */
-   int flags = fcntl(pipefds[myside], F_GETFD);
+   int flags = fcntl(pipefds[parent_side], F_GETFD);
    flags |= FD_CLOEXEC;
-   fcntl(pipefds[myside], F_SETFD, flags);
+   fcntl(pipefds[parent_side], F_SETFD, flags);
    pipe_con->pid = child;
-   pipe_con->fd = pipefds[myside];
+   pipe_con->fd = pipefds[parent_side];
    pipe_con->wstat = 0;
    return true;
 }
 
-/*
- * close pipeline and wait for the forked-off process to exit;
- * the wait status is returned in wstat (if non-null);
- * true is returned if successful, false otherwise
- */
+/* close pipeline and wait for the forked-off process to exit;
+   the wait status is returned in pipe->wstat;
+   true is returned if successful, false otherwise */
 bool phangup(pipe_end* pipe) {
    remove_fd(pipe->fd);
    if (close(pipe->fd) < 0) return false;
    if (waitpid(pipe->pid, &pipe->wstat, 0) < 0) return false;
    return true;
+}
+
+bool pshare(pipe_end* pipe) {
+   return share_fd(pipe->fd);
+}
+
+bool pcut(pipe_end* pipe) {
+   int fd = pipe->fd;
+   if (FD_ISSET(fd, &pipes)) {
+      return false;
+   }
+   return close(fd) >= 0;
+}
+
+bool pwait(pipe_end* pipe) {
+   if (FD_ISSET(pipe->fd, &pipes)) {
+      return false;
+   }
+   return waitpid(pipe->pid, &pipe->wstat, 0) >= 0;
 }
