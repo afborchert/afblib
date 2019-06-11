@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities based on the dietlib by fefe
-   Copyright (C) 2003, 2008 Andreas Franz Borchert
+   Copyright (C) 2003, 2008, 2019 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -30,7 +30,7 @@ typedef struct hostport {
    int protocol;
    /* parameters for bind() or connect() */
    struct sockaddr_storage addr;
-   int namelen;
+   socklen_t namelen;
 } hostport;
 
 bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport);

@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities based on the dietlib by fefe
-   Copyright (C) 2003, 2008 Andreas Franz Borchert
+   Copyright (C) 2003, 2008, 2019 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -33,7 +33,7 @@ hostport -- support of host/port tuple specifications according to RFC 2396
       int protocol;
       // parameters for bind() or connect()
       struct sockaddr_storage addr;
-      int namelen;
+      socklen_t namelen;
    } hostport;
 
    bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport);
@@ -46,18 +46,21 @@ optional port number. The term hostport was coined within
 RFC 2396 which provides the generic syntax for Uniform
 Resource Identifiers (URI). This syntax was extended by RFC
 2732 to support IPv6 addresses which were already specified
-in RFC 2373. (IPv6 addresses are, however, in the current
-implementation not yet supported.)
+in RFC 2373.
 
 Following syntax is supported:
 
    hostport        = host [ ":" port ]
-   host            = hostname | IPv4address
+   host            = hostname | IPv4address | IPv6reference
    hostname        = { domainlabel "." } toplabel [ "." ]
    domainlabel     = alphanum | alphanum { alphanum  |  "-"  }
 		     alphanum
    toplabel        = alpha | alpha { alphanum | "-" } alphanum
    IPv4address     = { digit } "."  { digit } "." { digit } "." { digit }
+   IPv6reference   = '[' IPv6address ']'
+   IPv6address     = hexpart [ ":" IPv4address ]
+   hexpart         = hexseq | hexseq "::" [ hexseq ] | "::" [ hexseq ]
+   hexseq          = { hexdigit } | hexseq ":" { hexdigit }
 
 I<parse_hostport> expects in I<input> a string that conforms to
 the given syntax and returns, in case of success, a I<hostport>
@@ -75,10 +78,6 @@ domain socket.
 I<parse_hostport> returns I<true> in case of success, and
 I<false> otherwise.
 
-=head1 BUGS
-
-Support of IPv6 addresses is not yet included.
-
 =head1 AUTHOR
 
 Andreas F. Borchert
@@ -89,6 +88,7 @@ Andreas F. Borchert
 
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <stddef.h>
 #include <stralloc.h>
 #include <string.h>
 #include <sys/un.h>
@@ -96,12 +96,12 @@ Andreas F. Borchert
 
 typedef struct inbuf {
    const char* buf;
-   unsigned int len;
-   unsigned int pos;
+   size_t len;
+   size_t pos;
 } inbuf;
 
 typedef struct host {
-   enum {IPv4, HOSTNAME} variant;
+   enum {IPv4, IPv6, HOSTNAME} variant;
    stralloc text;
 } host;
 
@@ -131,31 +131,80 @@ static bool parse_delimiter(inbuf* ibuf, char delimiter) {
 
 static bool parse_host(inbuf* ibuf, host* h) {
    bool valid_dotted_decimal = true;
+   bool ipv6_reference = false;
+   bool colon_seen = false;
+   bool double_colon_seen = false;
+   int colon_count = 0;
    int digits = 0;
    int dots = 0;
-   int ch;
-   while ((ch = inbuf_getchar(ibuf)) >= 0 && ch != ':') {
+   int last_ipv6_digits = 0;
+   int ch = inbuf_getchar(ibuf);
+   if (ch == '[') { /* per RFC 2732, section 3, IPv6reference */
+      ipv6_reference = true;
+      ch = inbuf_getchar(ibuf);
+   }
+   while (ch >= 0) {
+      if (ch == ':' && !ipv6_reference) break;
+      if (ch == ']' && ipv6_reference) {
+	 ch = inbuf_getchar(ibuf);
+	 break;
+      }
       stralloc_readyplus(&h->text, 1);
       h->text.s[h->text.len++] = ch;
-      if (ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch == '-') {
-	 valid_dotted_decimal = false;
-      } else if (ch >= '0' && ch <= '9') {
-	 ++digits;
-      } else if (ch == '.') {
-	 ++dots;
-	 if (digits == 0 || dots > 3) {
-	    valid_dotted_decimal = false;
+      if (ipv6_reference && ch == ':') {
+	 if (last_ipv6_digits > 4) {
+	    return false;
 	 }
+	 last_ipv6_digits = 0;
+	 valid_dotted_decimal = false;
+	 if (colon_seen) {
+	    if (double_colon_seen) {
+	       return false;
+	    }
+	    double_colon_seen = true;
+	 }
+	 colon_seen = true;
       } else {
-	 return false;
+	 if (colon_seen) {
+	    ++colon_count;
+	 }
+	 colon_seen = false;
+	 if (ipv6_reference &&
+	       (ch >= 'a' && ch <= 'f' || ch >= 'A' && ch <= 'F')) {
+	    ++last_ipv6_digits;
+	 } else if (ch >= 'a' && ch <= 'z' ||
+	       ch >= 'A' && ch <= 'Z' || ch == '-') {
+	    valid_dotted_decimal = false;
+	    if (ipv6_reference) {
+	       return false;
+	    }
+	 } else if (ch >= '0' && ch <= '9') {
+	    ++digits;
+	    ++last_ipv6_digits;
+	 } else if (ch == '.') {
+	    ++dots;
+	    if (digits == 0 || dots > 3) {
+	       valid_dotted_decimal = false;
+	    }
+	    if (ipv6_reference && !colon_count && !double_colon_seen) {
+	       return false;
+	    }
+	 } else {
+	    return false;
+	 }
       }
+      ch = inbuf_getchar(ibuf);
    }
    if (ch > 0) inbuf_back(ibuf);
-   valid_dotted_decimal = dots == 3 && digits > 0;
-   if (valid_dotted_decimal) {
-      h->variant = IPv4;
+   if (ipv6_reference) {
+      h->variant = IPv6;
    } else {
-      h->variant = HOSTNAME;
+      valid_dotted_decimal = valid_dotted_decimal && dots == 3 && digits > 0;
+      if (valid_dotted_decimal) {
+	 h->variant = IPv4;
+      } else {
+	 h->variant = HOSTNAME;
+      }
    }
    return true;
 }
@@ -192,7 +241,7 @@ bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport) {
    if (!parse_host(&ibuf, &h)) {
       stralloc_free(&h.text); return false;
    }
-   stralloc_0(&h.text); /* needed by inet_addr and gethostbyname */
+   stralloc_0(&h.text); /* needed by inet_addr, inet_pton, and gethostbyname */
    in_port_t port;
    if (parse_delimiter(&ibuf, ':')) {
       if (!parse_port(&ibuf, &port)) {
@@ -202,12 +251,6 @@ bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport) {
       port = defaultport;
    }
 
-   /* construct IPv4 socket address,
-      other address spaces (like IPv6) are currently not yet supported */
-   struct sockaddr_in sockaddr = {0};
-   sockaddr.sin_family = AF_INET;
-   sockaddr.sin_port = htons(port);
-
    switch (h.variant) {
       case IPv4:
 	 {
@@ -215,29 +258,81 @@ bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport) {
 	    if (addr == (in_addr_t)(-1)) {
 	       stralloc_free(&h.text); return false;
 	    }
+
+	    struct sockaddr_in sockaddr = {0};
+	    sockaddr.sin_family = AF_INET;
+	    sockaddr.sin_port = htons(port);
 	    sockaddr.sin_addr.s_addr = addr;
+
+	    hp->domain = PF_INET;
+	    memcpy(&hp->addr, &sockaddr, sizeof(sockaddr));
+	    hp->namelen = sizeof(sockaddr);
+	 }
+	 break;
+      case IPv6:
+	 {
+	    struct in6_addr addr;
+	    if (!inet_pton(AF_INET6, h.text.s, &addr)) {
+	       return false;
+	    }
+	    
+	    struct sockaddr_in6 sockaddr = {0};
+	    sockaddr.sin6_family = AF_INET6;
+	    sockaddr.sin6_port = htons(port);
+	    sockaddr.sin6_addr = addr;
+
+	    hp->domain = PF_INET6;
+	    memcpy(&hp->addr, &sockaddr, sizeof(sockaddr));
+	    hp->namelen = sizeof(sockaddr);
 	 }
 	 break;
       case HOSTNAME:
 	 {
-	    struct hostent* hp;
-	    if ((hp = gethostbyname(h.text.s)) == 0) {
-	       stralloc_free(&h.text); return false;
+	    /* AI_ADDRCONFIG is important here as otherwise Solaris
+	       provides us with an IPv6 address even if we do not
+	       have IPv6 connectivity */
+	    struct addrinfo hints = {
+	       .ai_family = AF_UNSPEC,
+	       .ai_flags = AI_NUMERICSERV | AI_CANONNAME | AI_ADDRCONFIG,
+	    };
+	    /* do not pass the port number per the second parameter
+	       of getaddrinfo as this does not appear to work under Solaris */
+	    struct addrinfo* aip;
+	    if (getaddrinfo(h.text.s, 0, &hints, &aip) || !aip) {
+	       stralloc_free(&h.text);
+	       return false;
 	    }
-	    char* hostaddr = hp->h_addr_list[0];
-	    /* currently we support AF_INET only */
-	    if (hp->h_addrtype != AF_INET) return false;
-	    in_addr_t addr;
-	    memmove((void *) &addr, (void *) hostaddr, hp->h_length);
-	    sockaddr.sin_addr.s_addr = addr;
+	    /* take the first result of getaddrinfo */
+	    hp->domain = aip->ai_family;
+	    memcpy(&hp->addr, aip->ai_addr, aip->ai_addrlen);
+	    hp->namelen = aip->ai_addrlen;
+	    freeaddrinfo(aip);
+	    /* fix the port number */
+	    switch (hp->domain) {
+	       case AF_INET:
+		  {
+		     struct sockaddr_in* sockp =
+			(struct sockaddr_in*) &hp->addr;
+		     sockp->sin_port = htons(port);
+		  }
+		  break;
+	       case AF_INET6:
+		  {
+		     struct sockaddr_in6* sockp =
+			(struct sockaddr_in6*) &hp->addr;
+		     sockp->sin6_port = htons(port);
+		  }
+		  break;
+	       default:
+		  /* unexpected */
+		  stralloc_free(&h.text);
+		  return false;
+	    }
 	 }
 	 break;
    }
    stralloc_free(&h.text);
 
-   hp->domain = PF_INET;
    hp->protocol = 0;
-   memcpy(&hp->addr, &sockaddr, sizeof(sockaddr));
-   hp->namelen = sizeof(sockaddr);
    return true;
 }
