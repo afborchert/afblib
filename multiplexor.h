@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities based on the dietlib by fefe
-   Copyright (C) 2003, 2008, 2013 Andreas Franz Borchert
+   Copyright (C) 2003, 2008, 2013, 2019 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -21,6 +21,7 @@
 #define AFBLIB_MULTIPLEXOR_H
 
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/types.h>
 
 typedef struct connection {
@@ -43,8 +44,8 @@ void run_multiplexor(int socket,
    multiplexor_handler input_handler,
    multiplexor_handler close_handler,
    void* mpx_handle);
-bool write_to_link(connection* link, char* buf, unsigned int len);
-ssize_t read_from_link(connection* link, char* buf, unsigned int len);
+bool write_to_link(connection* link, char* buf, size_t len);
+ssize_t read_from_link(connection* link, char* buf, size_t len);
 void close_link(connection* link);
 
 #endif

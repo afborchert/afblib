@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities based on the dietlib by fefe
-   Copyright (C) 2003, 2008, 2013, 2017 Andreas Franz Borchert
+   Copyright (C) 2003, 2008, 2013, 2017, 2019 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -41,8 +41,8 @@ multiplexor -- handle concurrent network sessions
       multiplexor_handler input_handler,
       multiplexor_handler close_handler,
       void* mpx_handle);
-   bool write_to_link(connection* link, char* buf, unsigned int len);
-   ssize_t read_from_link(connection* link, char* buf, unsigned int len);
+   bool write_to_link(connection* link, char* buf, size_t len);
+   ssize_t read_from_link(connection* link, char* buf, size_t len);
    void close_link(connection* link);
 
 =head1 DESCRIPTION
@@ -131,8 +131,8 @@ Andreas F. Borchert
 
 typedef struct output_queue_member {
    char* buf;
-   unsigned int len;
-   unsigned int pos;
+   size_t len;
+   size_t pos;
    struct output_queue_member* next;
 } output_queue_member;
 
@@ -145,9 +145,9 @@ typedef struct multiplexor {
    bool socketok; /* becomes false when accept() fails */
    connection* head; /* double-linked linear list of connections */
    connection* tail; /* its last element */
-   int count; /* number of connections */
+   size_t count; /* number of connections */
    struct pollfd* pollfds; /* parameter for poll() */
-   unsigned int pollfdslen; /* allocated len of pollfds */
+   size_t pollfdslen; /* allocated len of pollfds */
    connection** pollcs; /* of the same len as pollfds */
 } multiplexor;
 
@@ -173,8 +173,8 @@ static void remove_link(multiplexor* mpx, connection* link) {
 
 /* prepare fields pollfds and pollfdslen in mpx in
    dependence of the current set of connections */
-static int setup_polls(multiplexor* mpx) {
-   int len = mpx->count;
+static size_t setup_polls(multiplexor* mpx) {
+   size_t len = mpx->count;
    if (mpx->socketok) ++len;
    if (len == 0) return 0;
    /* weed out links which have been closed
@@ -193,7 +193,7 @@ static int setup_polls(multiplexor* mpx) {
       if (mpx->pollcs == 0) return 0;
       mpx->pollfdslen = len;
    }
-   int index = 0;
+   size_t index = 0;
    /* look for new network connections as long accept()
       returned no errors so far */
    if (mpx->socketok) {
@@ -245,7 +245,7 @@ static bool add_connection(multiplexor* mpx) {
 }
 
 /* read one input packet from the given network connection */
-ssize_t read_from_link(connection* link, char* buf, unsigned int len) {
+ssize_t read_from_link(connection* link, char* buf, size_t len) {
    if (link->eof) return 0;
    ssize_t nbytes = read(link->fd, buf, len);
    if (nbytes <= 0) {
@@ -298,10 +298,10 @@ void run_multiplexor(int socket,
       .mpx_handle = mpx_handle,
       .socketok = true,
    };
-   int count;
+   size_t count;
    while ((count = setup_polls(&mpx)) > 0) {
       if (poll(mpx.pollfds, count, -1) <= 0) return;
-      for (int index = 0; index < count; ++index) {
+      for (size_t index = 0; index < count; ++index) {
 	 if (mpx.pollfds[index].revents == 0) continue;
 	 int fd = mpx.pollfds[index].fd;
 	 if (fd == mpx.socket) {
@@ -322,7 +322,7 @@ void run_multiplexor(int socket,
    sigaction(SIGPIPE, &old_sigact, 0);
 }
 
-bool write_to_link(connection* link, char* buf, unsigned int len) {
+bool write_to_link(connection* link, char* buf, size_t len) {
    assert(len >= 0);
    if (len == 0) {
       free(buf); return true;
