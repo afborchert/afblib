@@ -250,7 +250,7 @@ ssize_t read_from_link(connection* link, char* buf, size_t len) {
    ssize_t nbytes = read(link->fd, buf, len);
    if (nbytes <= 0) {
       link->eof = true;
-      if (link->oqhead == 0) remove_link((multiplexor*)link->mpx, link);
+      if (link->oqhead == 0) remove_link(link->mpx, link);
    }
    return nbytes;
 }

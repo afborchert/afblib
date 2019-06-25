@@ -29,7 +29,7 @@ typedef struct connection {
    void* handle; /* may be freely used by the application */
    void* mpx_handle; /* corresponding parameter from run_multiplexor */
    /* private fields */
-   void* mpx; /* internal handle */
+   struct multiplexor* mpx; /* internal link to global structure */
    bool eof;
    struct output_queue_member* oqhead;
    struct output_queue_member* oqtail;
