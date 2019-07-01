@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <afblib/outbuf.h>
 
 typedef struct hostport {
    /* parameters for socket() */
@@ -34,5 +35,8 @@ typedef struct hostport {
 } hostport;
 
 bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport);
+bool get_hostport_of_peer(int socket, hostport* hp);
+bool print_sockaddr(outbuf* out, struct sockaddr* addr, socklen_t namelen);
+bool print_hostport(outbuf* out, hostport* hp);
 
 #endif

@@ -2,7 +2,7 @@ System :=	$(shell uname)
 
 ifeq ($(System), SunOS)
 CC :=		gcc
-CPPFLAGS :=	-I. -D_XOPEN_SOURCE=600
+CPPFLAGS :=	-I. -D_XOPEN_SOURCE=600 -D__EXTENSIONS__
 CFLAGS :=	-std=gnu11 -Wall -Wno-parentheses -g
 LDLIBS :=	-lowfat -lsocket -lnsl -lpcre
 SharedLib :=	libafb.so.0
@@ -78,9 +78,9 @@ static/tokenizer.o: tokenizer.c afblib/strlist.h afblib/tokenizer.h
 shared/ssystem.o: ssystem.c afblib/ssystem.h
 static/ssystem.o: ssystem.c afblib/ssystem.h
 shared/preforked_service.o: preforked_service.c afblib/preforked_service.h \
- afblib/hostport.h
+ afblib/hostport.h afblib/outbuf.h
 static/preforked_service.o: preforked_service.c afblib/preforked_service.h \
- afblib/hostport.h
+ afblib/hostport.h afblib/outbuf.h
 shared/outbuf.o: outbuf.c afblib/outbuf.h
 static/outbuf.o: outbuf.c afblib/outbuf.h
 shared/transmit_fd.o: transmit_fd.c afblib/transmit_fd.h
@@ -90,17 +90,19 @@ static/strhash.o: strhash.c afblib/strhash.h
 shared/sliding_buffer.o: sliding_buffer.c afblib/sliding_buffer.h
 static/sliding_buffer.o: sliding_buffer.c afblib/sliding_buffer.h
 shared/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
- afblib/multiplexor.h afblib/sliding_buffer.h
+ afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
 static/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
- afblib/multiplexor.h afblib/sliding_buffer.h
+ afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
 shared/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 static/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 shared/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
  afblib/inbuf.h
 static/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
  afblib/inbuf.h
-shared/hostport.o: hostport.c afblib/hostport.h
-static/hostport.o: hostport.c afblib/hostport.h
+shared/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
+ afblib/outbuf_printf.h
+static/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
+ afblib/outbuf_printf.h
 shared/strlist.o: strlist.c afblib/strlist.h
 static/strlist.o: strlist.c afblib/strlist.h
 shared/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h
@@ -111,9 +113,11 @@ shared/multiplexor.o: multiplexor.c afblib/multiplexor.h
 static/multiplexor.o: multiplexor.c afblib/multiplexor.h
 shared/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
 static/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
-shared/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h
-static/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h
+shared/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
+ afblib/outbuf.h
+static/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
+ afblib/outbuf.h
 shared/pconnect.o: pconnect.c afblib/pconnect.h
 static/pconnect.o: pconnect.c afblib/pconnect.h
-shared/service.o: service.c afblib/service.h afblib/hostport.h
-static/service.o: service.c afblib/service.h afblib/hostport.h
+shared/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
+static/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h

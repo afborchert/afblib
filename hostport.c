@@ -37,6 +37,9 @@ hostport -- support of host/port tuple specifications according to RFC 2396
    } hostport;
 
    bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport);
+   bool get_hostport_of_peer(int socket, hostport* hp);
+   bool print_sockaddr(outbuf* out, struct sockaddr* addr, socklen_t namelen);
+   bool print_hostport(outbuf* out, hostport* hp);
 
 =head1 DESCRIPTION
 
@@ -73,9 +76,15 @@ In addition, a hostport specification is permitted that begins
 with '/' or '.'. This is then considered to be the path of a UNIX
 domain socket.
 
+I<get_hostport_of_peer> may be called for connected sockets
+and returns, if successful, the peer's address of I<fd>
+in I<*hp>. I<print_sockaddr> allows a socket address to be
+printed (numerically) to I<out>. I<print_hostport> calls
+I<print_sockaddr> with the socket address stored in I<hp>.
+
 =head1 DIAGNOSTICS
 
-I<parse_hostport> returns I<true> in case of success, and
+All functions returns I<true> in case of success, and
 I<false> otherwise.
 
 =head1 AUTHOR
@@ -88,11 +97,13 @@ Andreas F. Borchert
 
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <stddef.h>
 #include <stralloc.h>
 #include <string.h>
 #include <sys/un.h>
 #include <afblib/hostport.h>
+#include <afblib/outbuf_printf.h>
 
 typedef struct inbuf {
    const char* buf;
@@ -335,4 +346,63 @@ bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport) {
 
    hp->protocol = 0;
    return true;
+}
+
+bool get_hostport_of_peer(int socket, hostport* hp) {
+   struct sockaddr_storage addr;
+   socklen_t namelen = sizeof(struct sockaddr_storage);
+   if (getpeername(socket, (struct sockaddr*) &addr, &namelen) < 0) {
+      return false;
+   }
+   int domain;
+   switch (addr.ss_family) {
+      case AF_INET:
+	 domain = PF_INET; break;
+      case AF_INET6:
+	 domain = PF_INET6; break;
+      case AF_UNIX:
+	 domain = PF_UNIX; break;
+      default:
+	 return false;
+   }
+   *hp = (hostport) {
+      .domain = domain,
+      .addr = addr,
+      .namelen = namelen,
+   };
+   return true;
+}
+
+bool print_sockaddr(outbuf* out, struct sockaddr* addr, socklen_t namelen) {
+   switch (addr->sa_family) {
+      case AF_INET:
+	 {
+	    if (namelen < sizeof(struct sockaddr_in)) return false;
+	    char buf[INET_ADDRSTRLEN + 1];
+	    struct sockaddr_in* ap = (struct sockaddr_in*) addr;
+	    inet_ntop(AF_INET, &ap->sin_addr, buf, sizeof buf);
+	    return outbuf_printf(out, "%s:%hu", buf, ntohs(ap->sin_port)) >= 0;
+	 }
+      case AF_INET6:
+	 {
+	    if (namelen < sizeof(struct sockaddr_in6)) return false;
+	    char buf[INET6_ADDRSTRLEN + 1];
+	    struct sockaddr_in6* ap = (struct sockaddr_in6*) addr;
+	    inet_ntop(AF_INET6, &ap->sin6_addr, buf, sizeof buf);
+	    return outbuf_printf(out, "[%s]:%hu", buf,
+	       ntohs(ap->sin6_port)) >= 0;
+	 }
+      case AF_UNIX:
+	 {
+	    if (namelen < sizeof(struct sockaddr_un)) return false;
+	    struct sockaddr_un* ap = (struct sockaddr_un*) &addr;
+	    return outbuf_printf(out, "%s", ap->sun_path) >= 0;
+	 }
+      default:
+	 return false;
+   }
+}
+
+bool print_hostport(outbuf* out, hostport* hp) {
+   return print_sockaddr(out, (struct sockaddr*) &hp->addr, hp->namelen);
 }
