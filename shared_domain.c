@@ -52,8 +52,9 @@ by I<sd_setup>. The internal per-process buffers have a size of
 I<nbytes> each. Each shared communication domain is accessible to other
 processes belonging to the same userthrough a temporary file in F</tmp>
 whose name can be retrieved using I<sd_get_name>. A shared communication
-domain can be released using I<sd_free>. Both, I<sd_setup> and
-I<sd_free> may be called by one process only.
+domain can be released using I<sd_free>. While I<sd_setup> must be
+called by one process only, I<sd_free> is to be called by all
+participating processes when access is no longer required.
 
 Other processes are free to connect to an already existing
 shared communication domain using I<sd_connect> where the I<name>
@@ -94,6 +95,7 @@ Andreas F. Borchert
 #include <afblib/shared_domain.h>
 #include <afblib/shared_mutex.h>
 
+/* header of a shared memory region */
 struct shared_mem_header {
    /* configuration of shared memory domain */
    unsigned int nofprocesses;
@@ -104,6 +106,7 @@ struct shared_mem_header {
    unsigned int sync_count; // for barrier
 };
 
+/* per-process buffer in the shared memory region */
 struct shared_mem_buffer {
    shared_mutex mutex;
    shared_cv ready_for_reading;
@@ -121,6 +124,7 @@ struct shared_mem_buffer {
    size_t write_index;
 };
 
+/* local data structure (not in shared memory) */
 struct shared_domain {
    bool creator; /* true for the creator of the shared memory buffer */
    unsigned int rank;
@@ -234,23 +238,25 @@ static size_t compute_shared_mem_size(size_t bufsize,
 }
 
 struct shared_domain* sd_setup(size_t bufsize, unsigned int nofprocesses) {
-   char* path = strdup("/tmp/.SHM-XXXXXX");
+   char* path = strdup("/tmp/.SHARED-XXXXXX");
    int fd = mkstemp(path);
    if (fd < 0) {
       free(path); return 0;
    }
    size_t sharedmem_size = compute_shared_mem_size(bufsize, nofprocesses);
    if (ftruncate(fd, sharedmem_size) < 0) {
-      close(fd); unlink(path); return 0;
+      close(fd); unlink(path); free(path); return 0;
    }
    struct shared_domain* sd = malloc(sizeof(struct shared_domain));
-   if (!sd) return 0;
+   if (!sd) {
+      close(fd); unlink(path); free(path); return 0;
+   }
 
    void* sm = mmap(0, sharedmem_size, PROT_READ|PROT_WRITE,
       MAP_SHARED, fd, 0);
    close(fd);
    if (sm == MAP_FAILED) {
-      unlink(path); return 0;
+      unlink(path); free(path); return 0;
    }
 
    struct shared_mem_header* header = (struct shared_mem_header*) sm;
@@ -293,6 +299,7 @@ struct shared_domain* sd_setup(size_t bufsize, unsigned int nofprocesses) {
 fail:
    free(sd);
    unlink(path);
+   free(path);
    munmap(sm, sharedmem_size);
    return 0;
 }

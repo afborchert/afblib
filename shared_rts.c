@@ -196,6 +196,7 @@ bool shared_rts_run(unsigned int nofprocesses,
       childs[rank] = pid;
    }
    pid_t pid; int wstat; unsigned int childs_left = nofprocesses;
+   bool aborted = false;
    while (childs_left && (pid = waitpid(-group, &wstat, 0)) > 0) {
       unsigned int rank = 0;
       while (rank < nofprocesses && childs[rank] != pid) {
@@ -203,17 +204,16 @@ bool shared_rts_run(unsigned int nofprocesses,
       }
       assert(rank < nofprocesses);
       childs[rank] = 0; --childs_left;
-      if (!WIFEXITED(wstat) || WEXITSTATUS(wstat)) break;
-   }
-   if (childs_left) {
-      /* cleanup remaining processes */
-      for (unsigned int rank = 0; rank < nofprocesses; ++rank) {
-	 pid_t pid = childs[rank];
-	 if (pid) kill(pid, SIGTERM);
+      if (!WIFEXITED(wstat) || WEXITSTATUS(wstat)) {
+	 /* abort remaining processes */
+	 aborted = true;
+	 if (childs_left) {
+	    kill(-group, SIGTERM);
+	 }
       }
    }
    sd_free(sd);
-   return childs_left == 0;
+   return !aborted;
 }
 
 struct shared_domain* shared_rts_init() {
@@ -225,4 +225,5 @@ struct shared_domain* shared_rts_init() {
 }
 
 void shared_rts_finish(struct shared_domain* sd) {
+   sd_free(sd);
 }

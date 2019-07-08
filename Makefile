@@ -65,6 +65,8 @@ manpages:	$(ManPages)
 $(ManPages): $(WebDir)/%.html: %.c
 		pod2html \
 		   --htmlroot=$(WebRoot) \
+		   --podroot=$(WebDir) \
+		   --podpath=. \
 		   --infile=$< \
 		   --outfile=$@ \
 		   --title="$*(3)" \
