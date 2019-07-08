@@ -73,18 +73,26 @@ $(ManPages): $(WebDir)/%.html: %.c
 Makefile:	$(Headers)
 		@gcc-makedepend -p shared/ -p static/ $(CPPFLAGS) $(CFiles)
 # DO NOT DELETE
+shared/shared_domain.o: shared_domain.c afblib/shared_cv.h afblib/shared_mutex.h \
+ afblib/shared_domain.h
+static/shared_domain.o: shared_domain.c afblib/shared_cv.h afblib/shared_mutex.h \
+ afblib/shared_domain.h
 shared/tokenizer.o: tokenizer.c afblib/strlist.h afblib/tokenizer.h
 static/tokenizer.o: tokenizer.c afblib/strlist.h afblib/tokenizer.h
+shared/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
+static/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
 shared/ssystem.o: ssystem.c afblib/ssystem.h
 static/ssystem.o: ssystem.c afblib/ssystem.h
 shared/preforked_service.o: preforked_service.c afblib/preforked_service.h \
  afblib/hostport.h afblib/outbuf.h
 static/preforked_service.o: preforked_service.c afblib/preforked_service.h \
  afblib/hostport.h afblib/outbuf.h
+shared/shared_env.o: shared_env.c afblib/shared_env.h
+static/shared_env.o: shared_env.c afblib/shared_env.h
 shared/outbuf.o: outbuf.c afblib/outbuf.h
 static/outbuf.o: outbuf.c afblib/outbuf.h
-shared/transmit_fd.o: transmit_fd.c afblib/transmit_fd.h
-static/transmit_fd.o: transmit_fd.c afblib/transmit_fd.h
+shared/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
+static/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
 shared/strhash.o: strhash.c afblib/strhash.h
 static/strhash.o: strhash.c afblib/strhash.h
 shared/sliding_buffer.o: sliding_buffer.c afblib/sliding_buffer.h
@@ -117,7 +125,13 @@ shared/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
  afblib/outbuf.h
 static/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
  afblib/outbuf.h
+shared/transmit_fd.o: transmit_fd.c afblib/transmit_fd.h
+static/transmit_fd.o: transmit_fd.c afblib/transmit_fd.h
 shared/pconnect.o: pconnect.c afblib/pconnect.h
 static/pconnect.o: pconnect.c afblib/pconnect.h
-shared/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
-static/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
+shared/shared_cv.o: shared_cv.c afblib/shared_cv.h afblib/shared_mutex.h
+static/shared_cv.o: shared_cv.c afblib/shared_cv.h afblib/shared_mutex.h
+shared/shared_rts.o: shared_rts.c shared_domain.h shared_env.h shared_rts.h \
+ afblib/shared_domain.h
+static/shared_rts.o: shared_rts.c shared_domain.h shared_env.h shared_rts.h \
+ afblib/shared_domain.h
