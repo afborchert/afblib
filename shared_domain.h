@@ -24,12 +24,16 @@
 #include <stddef.h>
 
 struct shared_domain* sd_setup(size_t nbytes, unsigned int nofprocesses);
+struct shared_domain* sd_setup_with_extra_space(size_t nbytes,
+   unsigned int nofprocesses, size_t extra_space);
 struct shared_domain* sd_connect(char* name, unsigned int rank);
 void sd_free(struct shared_domain* sd);
 
 unsigned int sd_get_rank(struct shared_domain* sd);
 unsigned int sd_get_nofprocesses(struct shared_domain* sd);
 char* sd_get_name(struct shared_domain* sd);
+size_t sd_get_extra_space_size(struct shared_domain* sd);
+void* sd_get_extra_space(struct shared_domain* sd);
 
 bool sd_barrier(struct shared_domain* sd);
 bool sd_write(struct shared_domain* sd, unsigned int recipient,

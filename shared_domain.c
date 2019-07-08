@@ -29,12 +29,16 @@ shared_domain -- communication domain based on shared memory
 
    struct shared_domain* sd_setup(size_t nbytes,
       unsigned int nofprocesses);
+   struct shared_domain* sd_setup_with_extra_space(size_t nbytes,
+      unsigned int nofprocesses, size_t extra_space_size);
    struct shared_domain* sd_connect(char* name, unsigned int rank);
    void sd_free(struct shared_domain* sd);
 
    unsigned int sd_get_rank(struct shared_domain* sd);
    unsigned int sd_get_nofprocesses(struct shared_domain* sd);
    char* sd_get_name(struct shared_domain* sd);
+   size_t sd_get_extra_space_size(struct shared_domain* sd);
+   void* sd_get_extra_space(struct shared_domain* sd);
 
    bool sd_barrier(struct shared_domain* sd);
    bool sd_write(struct shared_domain* sd, unsigned int recipient,
@@ -50,11 +54,17 @@ segment.
 A shared communication domain for I<nofprocesses> processes is created
 by I<sd_setup>. The internal per-process buffers have a size of
 I<nbytes> each. Each shared communication domain is accessible to other
-processes belonging to the same userthrough a temporary file in F</tmp>
+processes belonging to the same user through a temporary file in F</tmp>
 whose name can be retrieved using I<sd_get_name>. A shared communication
 domain can be released using I<sd_free>. While I<sd_setup> must be
 called by one process only, I<sd_free> is to be called by all
 participating processes when access is no longer required.
+
+I<sd_setup_with_extra_space> works like I<sd_setup> but
+allocates a shared memory segment with extra space of
+I<extra_space_size> bytes. This extra space can be accessed
+through I<sd_get_extra_space> and its size can be retrieved
+using I<sd_get_extra_space_size>.
 
 Other processes are free to connect to an already existing
 shared communication domain using I<sd_connect> where the I<name>
@@ -87,6 +97,7 @@ Andreas F. Borchert
 #include <pthread.h>
 #include <stdalign.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -104,6 +115,9 @@ struct shared_mem_header {
    shared_mutex mutex;
    shared_cv wait_for_barrier;
    unsigned int sync_count; // for barrier
+   /* support of shared extra space */
+   size_t extra_space_size;
+   ptrdiff_t extra_space_offset;
 };
 
 /* per-process buffer in the shared memory region */
@@ -135,7 +149,32 @@ struct shared_domain {
    struct shared_mem_header* header;
    struct shared_mem_buffer* first_buffer;
    ptrdiff_t buffer_stride;
+   size_t extra_space_size;
+   void* extra_space_ptr;
 };
+
+static size_t alignto(size_t size, size_t alignment) {
+   return (size + alignment - 1) & ~(alignment - 1);
+}
+
+static ptrdiff_t compute_shared_mem_buffer_stride(size_t bufsize) {
+   return
+      alignto(sizeof(struct shared_mem_buffer) + bufsize,
+	 alignof(struct shared_mem_buffer));
+}
+
+static size_t compute_shared_mem_size(size_t bufsize,
+      unsigned int nofprocesses, size_t extra_space_size) {
+   size_t mem_size =
+      alignto(sizeof(struct shared_mem_header),
+	 alignof(struct shared_mem_buffer)) +
+      compute_shared_mem_buffer_stride(bufsize) * nofprocesses;
+   if (extra_space_size) {
+      mem_size = alignto(mem_size, alignof(max_align_t)) +
+	 extra_space_size;
+   }
+   return mem_size;
+}
 
 /* initialize a shared memory buffer;
    this must be called by one process only;
@@ -197,7 +236,7 @@ static struct shared_mem_buffer* get_buffer(struct shared_domain* sd,
 /* initialize a shared_mem_header struct;
    this must be called by one process only */
 static bool init_header(struct shared_mem_header* hp,
-      unsigned int nofprocesses, size_t bufsize) {
+      unsigned int nofprocesses, size_t bufsize, size_t extra_space_size) {
    bool ok;
    ok = shared_mutex_create(&hp->mutex);
    if (!ok) return false;
@@ -209,6 +248,10 @@ static bool init_header(struct shared_mem_header* hp,
    hp->nofprocesses = nofprocesses;
    hp->bufsize = bufsize;
    hp->sync_count = 0;
+   hp->extra_space_size = extra_space_size;
+   hp->extra_space_offset = (ptrdiff_t)
+      (compute_shared_mem_size(bufsize, nofprocesses, extra_space_size) -
+      extra_space_size);
    return true;
 }
 
@@ -219,31 +262,19 @@ static bool free_header(struct shared_mem_header* hp) {
    return ok;
 }
 
-static size_t alignto(size_t size, size_t alignment) {
-   return (size + alignment - 1) & ~(alignment - 1);
-}
-
-static ptrdiff_t compute_shared_mem_buffer_stride(size_t bufsize) {
-   return
-      alignto(sizeof(struct shared_mem_buffer) + bufsize,
-	 alignof(struct shared_mem_buffer));
-}
-
-static size_t compute_shared_mem_size(size_t bufsize,
-      unsigned int nofprocesses) {
-   return
-      alignto(sizeof(struct shared_mem_header),
-	 alignof(struct shared_mem_buffer)) +
-      compute_shared_mem_buffer_stride(bufsize) * nofprocesses;
-}
-
 struct shared_domain* sd_setup(size_t bufsize, unsigned int nofprocesses) {
+   return sd_setup_with_extra_space(bufsize, nofprocesses, 0);
+}
+
+struct shared_domain* sd_setup_with_extra_space(size_t bufsize,
+      unsigned int nofprocesses, size_t extra_space_size) {
    char* path = strdup("/tmp/.SHARED-XXXXXX");
    int fd = mkstemp(path);
    if (fd < 0) {
       free(path); return 0;
    }
-   size_t sharedmem_size = compute_shared_mem_size(bufsize, nofprocesses);
+   size_t sharedmem_size = compute_shared_mem_size(bufsize,
+      nofprocesses, extra_space_size);
    if (ftruncate(fd, sharedmem_size) < 0) {
       close(fd); unlink(path); free(path); return 0;
    }
@@ -260,7 +291,7 @@ struct shared_domain* sd_setup(size_t bufsize, unsigned int nofprocesses) {
    }
 
    struct shared_mem_header* header = (struct shared_mem_header*) sm;
-   if (!init_header(header, nofprocesses, bufsize)) goto fail;
+   if (!init_header(header, nofprocesses, bufsize, extra_space_size)) goto fail;
    struct shared_mem_buffer* first_buffer = (struct shared_mem_buffer*) (
       (char*) sm +
 	 alignto(sizeof(struct shared_mem_header),
@@ -283,6 +314,11 @@ struct shared_domain* sd_setup(size_t bufsize, unsigned int nofprocesses) {
       }
    }
    
+   void* extra_space_ptr = 0;
+   if (extra_space_size) {
+      extra_space_ptr = (void*)((char*) sm + header->extra_space_offset);
+   }
+   
    *sd = (struct shared_domain) {
       .creator = true,
       .rank = 0,
@@ -293,6 +329,8 @@ struct shared_domain* sd_setup(size_t bufsize, unsigned int nofprocesses) {
       .header = header,
       .first_buffer = first_buffer,
       .buffer_stride = buffer_stride,
+      .extra_space_ptr = extra_space_ptr,
+      .extra_space_size = extra_space_size,
    };
    return sd;
 
@@ -316,7 +354,9 @@ struct shared_domain* sd_connect(char* name, unsigned int rank) {
    if (rank >= nofprocesses) {
       close(fd); return 0;
    }
-   size_t sharedmem_size = compute_shared_mem_size(bufsize, nofprocesses);
+   size_t extra_space_size = hbuf.extra_space_size;
+   size_t sharedmem_size = compute_shared_mem_size(bufsize,
+      nofprocesses, extra_space_size);
    void* sm = mmap(0, sharedmem_size, PROT_READ|PROT_WRITE,
       MAP_SHARED, fd, 0);
    close(fd);
@@ -333,6 +373,11 @@ struct shared_domain* sd_connect(char* name, unsigned int rank) {
    struct shared_domain* sd = malloc(sizeof(struct shared_domain));
    if (!sd) goto fail;
 
+   void* extra_space_ptr = 0;
+   if (extra_space_size) {
+      extra_space_ptr = (void*)((char*) sm + header->extra_space_offset);
+   }
+
    *sd = (struct shared_domain) {
       .creator = false,
       .rank = rank,
@@ -343,6 +388,8 @@ struct shared_domain* sd_connect(char* name, unsigned int rank) {
       .header = header,
       .first_buffer = first_buffer,
       .buffer_stride = buffer_stride,
+      .extra_space_ptr = extra_space_ptr,
+      .extra_space_size = extra_space_size,
    };
    return sd;
 
@@ -362,7 +409,7 @@ void sd_free(struct shared_domain* sd) {
       free(sd->name);
    }
    size_t sharedmem_size = compute_shared_mem_size(sd->bufsize,
-      sd->nofprocesses);
+      sd->nofprocesses, sd->extra_space_size);
    munmap(sd->sharedmem, sharedmem_size);
    free(sd);
 }
@@ -377,6 +424,14 @@ unsigned int sd_get_nofprocesses(struct shared_domain* sd) {
 
 char* sd_get_name(struct shared_domain* sd) {
    return sd->name;
+}
+
+size_t sd_get_extra_space_size(struct shared_domain* sd) {
+   return sd->header->extra_space_size;
+}
+
+void* sd_get_extra_space(struct shared_domain* sd) {
+   return sd->extra_space_ptr;
 }
 
 bool sd_barrier(struct shared_domain* sd) {

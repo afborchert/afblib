@@ -91,6 +91,8 @@ static/preforked_service.o: preforked_service.c afblib/preforked_service.h \
  afblib/hostport.h afblib/outbuf.h
 shared/shared_env.o: shared_env.c afblib/shared_env.h
 static/shared_env.o: shared_env.c afblib/shared_env.h
+shared/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
+static/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 shared/outbuf.o: outbuf.c afblib/outbuf.h
 static/outbuf.o: outbuf.c afblib/outbuf.h
 shared/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
@@ -103,8 +105,6 @@ shared/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
  afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
 static/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
  afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
-shared/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
-static/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 shared/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
  afblib/inbuf.h
 static/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
@@ -133,7 +133,7 @@ shared/pconnect.o: pconnect.c afblib/pconnect.h
 static/pconnect.o: pconnect.c afblib/pconnect.h
 shared/shared_cv.o: shared_cv.c afblib/shared_cv.h afblib/shared_mutex.h
 static/shared_cv.o: shared_cv.c afblib/shared_cv.h afblib/shared_mutex.h
-shared/shared_rts.o: shared_rts.c shared_domain.h shared_env.h shared_rts.h \
- afblib/shared_domain.h
-static/shared_rts.o: shared_rts.c shared_domain.h shared_env.h shared_rts.h \
- afblib/shared_domain.h
+shared/shared_rts.o: shared_rts.c afblib/shared_domain.h afblib/shared_env.h \
+ afblib/shared_rts.h
+static/shared_rts.o: shared_rts.c afblib/shared_domain.h afblib/shared_env.h \
+ afblib/shared_rts.h

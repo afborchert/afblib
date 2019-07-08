@@ -25,7 +25,8 @@
 #include <afblib/shared_domain.h>
 
 bool shared_rts_run(unsigned int nofprocesses,
-   size_t bufsize, const char* path, char** argv);
+   size_t bufsize, size_t extra_space_size,
+   const char* path, char** argv);
 
 struct shared_domain* shared_rts_init();
 void shared_rts_finish(struct shared_domain* sd);

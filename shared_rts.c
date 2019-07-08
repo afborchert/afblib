@@ -28,7 +28,8 @@ shared_rts -- runtime system for a shared communication domain
    #include <afblib/shared_rts.h>
 
    bool shared_rts_run(unsigned int nofprocesses,
-      size_t bufsize, const char* path, char** argv);
+      size_t bufsize, size_t extra_space_size,
+      const char* path, char** argv);
 
    struct shared_domain* shared_rts_init();
    void shared_rts_finish(struct shared_domain* sd);
@@ -45,8 +46,10 @@ domain, and finishes everything as soon as all processes are terminated.
 I<shared_rts_run> is to be called by the master process
 and configures a shared communication for I<nofprocesses> where
 the individual communication buffers have a size of I<bufsize>
-bytes. The I<nofprocesses> worker processes are started (through
-I<fork> and I<exec>) where the parameters of the shared communication
+bytes and optionally with some extra space in the shared memory
+segment of I<extra_space_size> bytes. The I<nofprocesses> worker
+processes are started (through I<fork> and I<exec>) where the
+parameters of the shared communication
 domain are passed through the environment (see L<shared_env>).
 I<shared_rts_run> blocks until all child processes are finished.
 If one of the child processes aborts or exists with a non-zero exit
@@ -81,38 +84,49 @@ worker processes that share a communication domain:
    char* cmdname;
    void usage() {
       fprintf(stderr,
-	 "Usage: %s [-bufsize bufsize] [-np nofprocesses] cmd args...\n",
-	 cmdname);
+         "Usage: %s "
+         "[-bufsize bufsize] "
+         "[-extra extra_bytes] "
+         "[-np nofprocesses] "
+         "cmd args...\n",
+         cmdname);
       exit(1);
    }
 
    int main(int argc, char** argv) {
       cmdname = *argv++; --argc;
       unsigned int nofprocesses = 2; size_t bufsize = 1024;
+      size_t extra_space_size = 0;
       while (argc > 1 && **argv == '-') {
-	 if (strcmp(*argv, "-np") == 0) {
-	    ++argv; --argc;
-	    unsigned long long val;
-	    if (!convert_val(*argv, &val)) usage();
-	    nofprocesses = val;
-	 } else if (strcmp(*argv, "-bufsize") == 0) {
-	    ++argv; --argc;
-	    unsigned long long val;
-	    if (!convert_val(*argv, &val)) usage();
-	    bufsize = val;
-	 } else {
-	    usage();
-	 }
-	 ++argv; --argc;
+         if (strcmp(*argv, "-np") == 0) {
+            ++argv; --argc;
+            unsigned long long val;
+            if (!convert_val(*argv, &val)) usage();
+            nofprocesses = val;
+         } else if (strcmp(*argv, "-bufsize") == 0) {
+            ++argv; --argc;
+            unsigned long long val;
+            if (!convert_val(*argv, &val)) usage();
+            bufsize = val;
+         } else if (strcmp(*argv, "-extra") == 0) {
+            ++argv; --argc;
+            unsigned long long val;
+            if (!convert_val(*argv, &val)) usage();
+            extra_space_size = val;
+         } else {
+            usage();
+         }
+         ++argv; --argc;
       }
       if (argc == 0) usage();
-      if (shared_rts_run(nofprocesses, bufsize, *argv, argv)) {
-	 exit(0);
+      if (shared_rts_run(nofprocesses, bufsize, extra_space_size, *argv, argv)) {
+         exit(0);
       } else {
-	 perror(cmdname);
-	 exit(1);
+         fprintf(stderr, "%s: execution failed\n", cmdname);
+         exit(1);
       }
    }
+
 
 And following example demonstrates the view of the worker
 processes where all processes with the exception of rank 0
@@ -163,11 +177,13 @@ Andreas F. Borchert
 #define PREFIX ("SHARED")
 
 bool shared_rts_run(unsigned int nofprocesses,
-      size_t bufsize, const char* path, char** argv) {
+      size_t bufsize, size_t extra_space_size,
+      const char* path, char** argv) {
    if (nofprocesses == 0) return true;
    if (bufsize == 0) return false;
    pid_t childs[nofprocesses];
-   struct shared_domain* sd = sd_setup(bufsize, nofprocesses);
+   struct shared_domain* sd = sd_setup_with_extra_space(bufsize,
+      nofprocesses, extra_space_size);
    if (!sd) return false;
    struct shared_env params = {
       .name = sd_get_name(sd),
