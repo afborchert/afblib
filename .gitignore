@@ -3,6 +3,7 @@
 afblib-*
 libafb.a
 libafb.so.0
+libafb.dylib
 mk_release
 shared
 static
