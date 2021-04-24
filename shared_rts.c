@@ -168,8 +168,8 @@ Andreas F. Borchert
 #include <assert.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <sys/wait.h>
 #include <unistd.h>
-#include <wait.h>
 #include <afblib/shared_domain.h>
 #include <afblib/shared_env.h>
 #include <afblib/shared_rts.h>
