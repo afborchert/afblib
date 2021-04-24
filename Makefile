@@ -83,97 +83,65 @@ $(ManPages): $(WebDir)/%.html: %.c
 Makefile:	$(Headers)
 		@gcc-makedepend -p shared/ -p static/ $(CPPFLAGS) $(CFiles)
 # DO NOT DELETE
-shared/hostport.o: hostport.c \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h afblib/hostport.h \
- afblib/outbuf.h afblib/outbuf_printf.h
-static/hostport.o: hostport.c \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h afblib/hostport.h \
- afblib/outbuf.h afblib/outbuf_printf.h
-shared/inbuf.o: inbuf.c afblib/inbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-static/inbuf.o: inbuf.c afblib/inbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-shared/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-static/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-shared/inbuf_sareadline.o: inbuf_sareadline.c \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h \
- afblib/inbuf_sareadline.h afblib/inbuf.h
-static/inbuf_sareadline.o: inbuf_sareadline.c \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h \
- afblib/inbuf_sareadline.h afblib/inbuf.h
-shared/inbuf_scan.o: inbuf_scan.c /usr/local/opt/pcre/include/pcre.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h afblib/inbuf_scan.h \
- afblib/inbuf.h
-static/inbuf_scan.o: inbuf_scan.c /usr/local/opt/pcre/include/pcre.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h afblib/inbuf_scan.h \
- afblib/inbuf.h
-shared/mpx_session.o: mpx_session.c /usr/local/opt/pcre/include/pcre.h \
- afblib/mpx_session.h /usr/local/opt/libowfat/include/libowfat/stralloc.h \
- afblib/hostport.h afblib/outbuf.h afblib/multiplexor.h \
- afblib/sliding_buffer.h
-static/mpx_session.o: mpx_session.c /usr/local/opt/pcre/include/pcre.h \
- afblib/mpx_session.h /usr/local/opt/libowfat/include/libowfat/stralloc.h \
- afblib/hostport.h afblib/outbuf.h afblib/multiplexor.h \
- afblib/sliding_buffer.h
-shared/multiplexor.o: multiplexor.c afblib/multiplexor.h
-static/multiplexor.o: multiplexor.c afblib/multiplexor.h
-shared/outbuf.o: outbuf.c /usr/local/opt/libowfat/include/libowfat/stralloc.h \
- afblib/outbuf.h
-static/outbuf.o: outbuf.c /usr/local/opt/libowfat/include/libowfat/stralloc.h \
- afblib/outbuf.h
-shared/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-static/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-shared/pconnect.o: pconnect.c afblib/pconnect.h
-static/pconnect.o: pconnect.c afblib/pconnect.h
-shared/preforked_service.o: preforked_service.c afblib/preforked_service.h \
- afblib/hostport.h afblib/outbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-static/preforked_service.o: preforked_service.c afblib/preforked_service.h \
- afblib/hostport.h afblib/outbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-shared/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-static/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h
-shared/shared_cv.o: shared_cv.c afblib/shared_cv.h afblib/shared_mutex.h
-static/shared_cv.o: shared_cv.c afblib/shared_cv.h afblib/shared_mutex.h
 shared/shared_domain.o: shared_domain.c afblib/shared_cv.h afblib/shared_mutex.h \
  afblib/shared_domain.h
 static/shared_domain.o: shared_domain.c afblib/shared_cv.h afblib/shared_mutex.h \
  afblib/shared_domain.h
+shared/tokenizer.o: tokenizer.c afblib/strlist.h afblib/tokenizer.h
+static/tokenizer.o: tokenizer.c afblib/strlist.h afblib/tokenizer.h
+shared/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
+static/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
+shared/inbuf.o: inbuf.c afblib/inbuf.h
+static/inbuf.o: inbuf.c afblib/inbuf.h
+shared/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
+ afblib/outbuf_printf.h
+static/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
+ afblib/outbuf_printf.h
+shared/preforked_service.o: preforked_service.c afblib/preforked_service.h \
+ afblib/hostport.h afblib/outbuf.h
+static/preforked_service.o: preforked_service.c afblib/preforked_service.h \
+ afblib/hostport.h afblib/outbuf.h
 shared/shared_env.o: shared_env.c afblib/shared_env.h
 static/shared_env.o: shared_env.c afblib/shared_env.h
-shared/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
-static/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
 shared/shared_rts.o: shared_rts.c afblib/shared_domain.h afblib/shared_env.h \
  afblib/shared_rts.h
 static/shared_rts.o: shared_rts.c afblib/shared_domain.h afblib/shared_env.h \
  afblib/shared_rts.h
-shared/sliding_buffer.o: sliding_buffer.c \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h \
- afblib/sliding_buffer.h
-static/sliding_buffer.o: sliding_buffer.c \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h \
- afblib/sliding_buffer.h
-shared/ssystem.o: ssystem.c afblib/ssystem.h
-static/ssystem.o: ssystem.c afblib/ssystem.h
+shared/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
+ afblib/outbuf.h
+static/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
+ afblib/outbuf.h
+shared/outbuf.o: outbuf.c afblib/outbuf.h
+static/outbuf.o: outbuf.c afblib/outbuf.h
+shared/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
+static/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
 shared/strhash.o: strhash.c afblib/strhash.h
 static/strhash.o: strhash.c afblib/strhash.h
+shared/sliding_buffer.o: sliding_buffer.c afblib/sliding_buffer.h
+static/sliding_buffer.o: sliding_buffer.c afblib/sliding_buffer.h
+shared/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
+static/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
+shared/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
+ afblib/inbuf.h
+static/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
+ afblib/inbuf.h
 shared/strlist.o: strlist.c afblib/strlist.h
 static/strlist.o: strlist.c afblib/strlist.h
-shared/tokenizer.o: tokenizer.c \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h afblib/strlist.h \
- afblib/tokenizer.h
-static/tokenizer.o: tokenizer.c \
- /usr/local/opt/libowfat/include/libowfat/stralloc.h afblib/strlist.h \
- afblib/tokenizer.h
+shared/multiplexor.o: multiplexor.c afblib/multiplexor.h
+static/multiplexor.o: multiplexor.c afblib/multiplexor.h
+shared/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h
+static/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h
+shared/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
+ afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
+static/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
+ afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
+shared/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
+static/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
+shared/ssystem.o: ssystem.c afblib/ssystem.h
+static/ssystem.o: ssystem.c afblib/ssystem.h
 shared/transmit_fd.o: transmit_fd.c afblib/transmit_fd.h
 static/transmit_fd.o: transmit_fd.c afblib/transmit_fd.h
-shared/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
- afblib/outbuf.h /usr/local/opt/libowfat/include/libowfat/stralloc.h
-static/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
- afblib/outbuf.h /usr/local/opt/libowfat/include/libowfat/stralloc.h
+shared/pconnect.o: pconnect.c afblib/pconnect.h
+static/pconnect.o: pconnect.c afblib/pconnect.h
+shared/shared_cv.o: shared_cv.c afblib/shared_cv.h afblib/shared_mutex.h
+static/shared_cv.o: shared_cv.c afblib/shared_cv.h afblib/shared_mutex.h
