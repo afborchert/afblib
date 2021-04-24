@@ -40,7 +40,7 @@ Objects :=	$(StaticObjects) $(SharedObjects)
 ArchivedObjects := $(patsubst static/%,$(Target)(%),$(StaticObjects))
 WebDir :=	./www
 ManPages :=	$(patsubst %.c,$(WebDir)/%.html,$(CFiles))
-WebRoot :=	http://www.mathematik.uni-ulm.de/numerik/soft2/ss19/afblib
+WebRoot :=	http://www.mathematik.uni-ulm.de/numerik/soft2/ss21/afblib
 
 .PHONY:		all objdirs depend clean realclean manpages
 all:		Makefile objdirs $(Target) $(SharedLib)
