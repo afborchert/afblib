@@ -71,7 +71,7 @@ I<recv_fd> simply returns it.
 =head1 DIAGNOSTICS
 
 The return values of I<send_fd_and_message> and
-I<recv_fd_and_message> correspond to the system
+I<recv_fd_and_message> correspond to those of the system
 calls I<write> and I<read>. -1 is returned in
 case of failures.
 
