@@ -26,17 +26,17 @@ run_service -- run a TCP-based service on a given hostport
 
    #include <afblib/service.h>
 
-   typedef void (*session_handler)(int fd, int argc, char** argv);
+   typedef void (*session_handler)(int fd, void* service_handle);
 
    void run_service(hostport* hp, session_handler handler,
-      int argc, char** argv);
+      void* service_handle);
 
 =head1 DESCRIPTION
 
 I<run_service> creates a socket with the given address specified by hp
 (see L<hostport>), and accepts connections. For each accepted connection,
 a process is spawned that invokes the provided I<handler> which is called
-with the provided arguments I<argc> and I<argv>. As soon the session
+with the provided handle I<service_handle>.  As soon the session
 handler returns, the spawned off process terminates with an exit code
 of 0.
 
@@ -58,12 +58,10 @@ Andreas F. Borchert
 #include <unistd.h>
 #include <afblib/service.h>
 
-/*
- * listen on the given port and invoke the handler for each
- * incoming connection
- */
+/* listen on the given port and invoke the handler for each
+   incoming connection */
 void run_service(hostport* hp, session_handler handler,
-      int argc, char** argv) {
+      void* service_handle) {
    if (!hp->type) {
       hp->type = SOCK_STREAM;
    }
@@ -93,7 +91,7 @@ void run_service(hostport* hp, session_handler handler,
       }
       if (child == 0) {
 	 close(sfd);
-         handler(fd, argc, argv);
+         handler(fd, service_handle);
          exit(0);
       }
       close(fd);

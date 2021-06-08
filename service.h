@@ -1,6 +1,6 @@
 /*
-   Small library of useful utilities based on the dietlib by fefe
-   Copyright (C) 2003, 2008, 2013 Andreas Franz Borchert
+   Small library of useful utilities
+   Copyright (C) 2003, 2008, 2013, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -21,13 +21,11 @@
 
 #include <afblib/hostport.h>
 
-typedef void (*session_handler)(int fd, int argc, char** argv);
+typedef void (*session_handler)(int fd, void* service_handle);
 
-/*
- * listen on the given port and invoke the handler for each
- * incoming connection
- */
+/* listen on the given port and invoke the handler for each
+   incoming connection */
 void run_service(hostport* hp, session_handler handler,
-   int argc, char** argv);
+   void* service_handle);
 
 #endif

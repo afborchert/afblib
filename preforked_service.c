@@ -26,10 +26,10 @@ run_preforked_service -- run a TCP-based service on a given hostport
 
    #include <afblib/preforked_service.h>
 
-   typedef void (*session_handler)(int fd, int argc, char** argv);
+   typedef void (*session_handler)(int fd, void* service_handle);
 
    void run_preforked_service(hostport* hp, session_handler handler,
-	 unsigned int number_of_processes, int argc, char** argv) {
+      unsigned int number_of_processes, void* service_handle);
 
 =head1 DESCRIPTION
 
@@ -39,7 +39,8 @@ which the socket is inherited. Each of these processes waits until
 a new connection is dispatched to it. Then it will run the session
 and another preforked process will be created as replacement.
 This means that there will be always I<number_of_processes> processes
-ready to accept a connection.
+ready to accept a connection. The I<service_handle> parameter is
+forwarded to I<handler> when called.
 
 If the main process gets a SIGTERM signal, this will be distributed
 to all children, causing all processes to terminate. Running sessions,
@@ -79,7 +80,7 @@ static void termination_handler(int sig) {
     - waits until accept() returns
     - and signals that a session was accepted by closing the pipe */
 static pid_t spawn_preforked_process(int sfd, int pipefds[2],
-      session_handler handler, int argc, char** argv) {
+      session_handler handler, void* service_handle) {
    if (pipe(pipefds) < 0) return -1;
    pid_t child = fork();
    if (child) {
@@ -95,16 +96,14 @@ static pid_t spawn_preforked_process(int sfd, int pipefds[2],
       we are busy with running a session */
    close(pipefds[1]);
    /* run the session and exit */
-   handler(fd, argc, argv);
+   handler(fd, service_handle);
    exit(0);
 }
 
-/*
- * listen on the given hostport and invoke the handler for each
- * incoming connection in a separate process
- */
+/* listen on the given hostport and invoke the handler for each
+    incoming connection in a separate process */
 void run_preforked_service(hostport* hp, session_handler handler,
-      unsigned int number_of_processes, int argc, char** argv) {
+      unsigned int number_of_processes, void* service_handle) {
    assert(number_of_processes > 0);
    if (!hp->type) {
       hp->type = SOCK_STREAM;
@@ -142,8 +141,9 @@ void run_preforked_service(hostport* hp, session_handler handler,
       /* a pipe is used to signal that one of the
 	 preforked processes accepted a connection */
       int pipefds[2];
-      pid_t pid = spawn_preforked_process(sfd, pipefds, handler, argc, argv);
-      pollfds[i] = (struct pollfd) { .fd = pipefds[0], .events = POLLIN};
+      pid_t pid = spawn_preforked_process(sfd, pipefds, handler,
+	 service_handle);
+      pollfds[i] = (struct pollfd) {.fd = pipefds[0], .events = POLLIN};
       if (pid < 0) return;
       child_pid[i] = pid;
    }
@@ -158,9 +158,10 @@ void run_preforked_service(hostport* hp, session_handler handler,
 	 /* start a new preforked process for every process
 	    that accepted a connection */
 	 int pipefds[2];
-	 pid_t pid = spawn_preforked_process(sfd, pipefds, handler, argc, argv);
+	 pid_t pid = spawn_preforked_process(sfd, pipefds, handler,
+	    service_handle);
 	 if (pid < 0) return;
-	 pollfds[i] = (struct pollfd) { .fd = pipefds[0], .events = POLLIN};
+	 pollfds[i] = (struct pollfd) {.fd = pipefds[0], .events = POLLIN};
 	 child_pid[i] = pid;
       }
    }

@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities
-   Copyright (C) 2013, 2014 Andreas Franz Borchert
+   Copyright (C) 2013, 2014, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -21,13 +21,11 @@
 
 #include <afblib/hostport.h>
 
-typedef void (*session_handler)(int fd, int argc, char** argv);
+typedef void (*session_handler)(int fd, void* service_handle);
 
-/*
- * listen on the given hostport and invoke the handler for each
- * incoming connection in a separate process
- */
+/* listen on the given hostport and invoke the handler for each
+    incoming connection in a separate process */
 void run_preforked_service(hostport* hp, session_handler handler,
-   unsigned int number_of_processes, int argc, char** argv);
+   unsigned int number_of_processes, void* service_handle);
 
 #endif
