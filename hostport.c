@@ -268,92 +268,55 @@ bool parse_hostport(const char* input, int type, in_port_t defaultport,
       port = defaultport;
    }
 
+   struct addrinfo* aip = 0;
+   struct addrinfo hints = {
+      .ai_socktype = type,
+   };
    switch (h.variant) {
       case IPv4:
-	 {
-	    in_addr_t addr = inet_addr(h.text.s);
-	    if (addr == (in_addr_t)(-1)) {
-	       stralloc_free(&h.text); return false;
-	    }
-
-	    struct sockaddr_in sockaddr = {0};
-	    sockaddr.sin_family = AF_INET;
-	    sockaddr.sin_port = htons(port);
-	    sockaddr.sin_addr.s_addr = addr;
-
-	    hp->domain = PF_INET;
-	    hp->type = type;
-	    hp->protocol = 0;
-	    memcpy(&hp->addr, &sockaddr, sizeof(sockaddr));
-	    hp->namelen = sizeof(sockaddr);
-	 }
+	 hints.ai_family = AF_INET;
 	 break;
       case IPv6:
-	 {
-	    struct in6_addr addr;
-	    if (!inet_pton(AF_INET6, h.text.s, &addr)) {
-	       return false;
-	    }
-	    
-	    struct sockaddr_in6 sockaddr = {0};
-	    sockaddr.sin6_family = AF_INET6;
-	    sockaddr.sin6_port = htons(port);
-	    sockaddr.sin6_addr = addr;
-
-	    hp->domain = PF_INET6;
-	    hp->type = type;
-	    hp->protocol = 0;
-	    memcpy(&hp->addr, &sockaddr, sizeof(sockaddr));
-	    hp->namelen = sizeof(sockaddr);
-	 }
-	 break;
+	 hints.ai_family = AF_INET6;
       case HOSTNAME:
+	 hints.ai_family = AF_UNSPEC;
+	 hints.ai_flags = AI_ADDRCONFIG;
+	 break;
+   }
+
+   /* do not pass the port number per the second parameter
+      of getaddrinfo as this does not appear to work under Solaris */
+   if (getaddrinfo(h.text.s, 0, &hints, &aip) || !aip) {
+      stralloc_free(&h.text);
+      return false;
+   }
+   /* take the first result of getaddrinfo */
+   hp->domain = aip->ai_family;
+   hp->type = type;
+   memcpy(&hp->addr, aip->ai_addr, aip->ai_addrlen);
+   hp->namelen = aip->ai_addrlen;
+   hp->protocol = aip->ai_protocol;
+   freeaddrinfo(aip);
+   /* fix the port number */
+   switch (hp->domain) {
+      case AF_INET:
 	 {
-	    /* AI_ADDRCONFIG is important here as otherwise we
-	       might end up with an address for which we have
-	       no connectivity */
-	    struct addrinfo hints = {
-	       .ai_family = AF_UNSPEC,
-	       .ai_flags = AI_ADDRCONFIG,
-	       .ai_socktype = type,
-	    };
-	    /* do not pass the port number per the second parameter
-	       of getaddrinfo as this does not appear to work under Solaris */
-	    struct addrinfo* aip = 0;
-	    if (getaddrinfo(h.text.s, 0, &hints, &aip) || !aip) {
-	       stralloc_free(&h.text);
-	       return false;
-	    }
-	    /* take the first result of getaddrinfo */
-	    hp->domain = aip->ai_family;
-	    hp->type = type;
-	    memcpy(&hp->addr, aip->ai_addr, aip->ai_addrlen);
-	    hp->namelen = aip->ai_addrlen;
-	    hp->protocol = aip->ai_protocol;
-	    freeaddrinfo(aip);
-	    /* fix the port number */
-	    switch (hp->domain) {
-	       case AF_INET:
-		  {
-		     struct sockaddr_in* sockp =
-			(struct sockaddr_in*) &hp->addr;
-		     sockp->sin_port = htons(port);
-		  }
-		  break;
-	       case AF_INET6:
-		  {
-		     struct sockaddr_in6* sockp =
-			(struct sockaddr_in6*) &hp->addr;
-		     sockp->sin6_port = htons(port);
-		  }
-		  break;
-	       default:
-		  /* unexpected */
-		  stralloc_free(&h.text);
-		  return false;
-	    }
+	    struct sockaddr_in* sockp =
+	       (struct sockaddr_in*) &hp->addr;
+	    sockp->sin_port = htons(port);
 	 }
 	 break;
+      case AF_INET6:
+	 {
+	    struct sockaddr_in6* sockp =
+	       (struct sockaddr_in6*) &hp->addr;
+	    sockp->sin6_port = htons(port);
+	 }
+	 break;
+      default:
+	 /* unexpected */
+	 stralloc_free(&h.text);
+	 return false;
    }
    stralloc_free(&h.text);
    return true;
