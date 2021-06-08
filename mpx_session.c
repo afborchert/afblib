@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities
-   Copyright (C) 2003, 2008, 2013, 2014 Andreas Franz Borchert
+   Copyright (C) 2003, 2008, 2013, 2014, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -160,7 +160,7 @@ over all sessions gets incremented.
       }
       char* hostport_string = *argv++; --argc;
       hostport hp;
-      if (!parse_hostport(hostport_string, &hp, 33013)) {
+      if (!parse_hostport(hostport_string, SOCK_STREAM, 33013, &hp)) {
 	 fprintf(stderr, "%s: hostport expected\n", cmdname); exit(1);
       }
 
@@ -351,7 +351,10 @@ int mpx_session_printf(session* s, const char* restrict format, ...) {
 void run_mpx_service(hostport* hp, const char* regexp,
       mpx_handler ohandler, mpx_handler rhandler, mpx_handler hhandler,
       void* global_handle) {
-   int sfd = socket(hp->domain, SOCK_STREAM, hp->protocol);
+   if (!hp->type) {
+      hp->type = SOCK_STREAM;
+   }
+   int sfd = socket(hp->domain, hp->type, hp->protocol);
    int optval = 1;
    if (sfd < 0 ||
         setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,

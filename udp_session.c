@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities
-   Copyright (C) 2015 Andreas Franz Borchert
+   Copyright (C) 2015, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -34,7 +34,7 @@ udp_session -- run an UDP service with sessions
 
    typedef void (*udp_connection_handler)(udp_connection* link);
 
-   void run_udp_service(hostport hp,
+   void run_udp_service(hostport* hp,
       int timeout, unsigned int max_retries,
       udp_connection_handler open_handler,
       udp_connection_handler input_handler,
@@ -47,7 +47,7 @@ udp_session -- run an UDP service with sessions
 
 =head1 DESCRIPTION
 
-I<run_udp_service> creates an UDP socket that listens on the
+I<run_udp_service> creates a socket that listens on the
 given hostport and waits for incoming packets. Each packet to
 the main socket opens a new session which is responded to
 using a new port which is used throughout the session
@@ -287,20 +287,23 @@ static bool add_connection(multiplexor* mpx) {
    return true;
 }
 
-void run_udp_service(hostport hp,
+void run_udp_service(hostport* hp,
       int timeout, unsigned int max_retries,
       udp_connection_handler open_handler,
       udp_connection_handler input_handler,
       udp_connection_handler close_handler,
       void* global_handle) {
    assert(timeout > 0);
-   int sfd = socket(hp.domain, SOCK_DGRAM, hp.protocol);
-   if (sfd < 0 || bind(sfd, (struct sockaddr *) &hp.addr, hp.namelen) < 0) {
+   if (!hp->type) {
+      hp->type = SOCK_DGRAM;
+   }
+   int sfd = socket(hp->domain, hp->type, hp->protocol);
+   if (sfd < 0 || bind(sfd, (struct sockaddr *) &hp->addr, hp->namelen) < 0) {
       return;
    }
    multiplexor mpx = {
       .socket = sfd,
-      .hp = hp,
+      .hp = *hp,
       .timeout = timeout, .max_retries = max_retries,
       .ohandler = open_handler,
       .ihandler = input_handler,
@@ -390,7 +393,7 @@ ssize_t read_from_udp_link(udp_connection* link, void* buf, size_t len) {
 	    our new peer; note that the new socket gets
 	    a port assigned by the system which identifies
 	    this session */
-	 int fd = socket(link->hp.domain, SOCK_DGRAM, link->hp.protocol);
+	 int fd = socket(link->hp.domain, link->hp.type, link->hp.protocol);
 	 if (fd < 0 ||
 	       connect(fd, (struct sockaddr*)&link->hp.addr,
 		  link->hp.namelen) < 0) {

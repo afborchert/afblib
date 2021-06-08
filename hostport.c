@@ -1,6 +1,6 @@
 /*
-   Small library of useful utilities based on the dietlib by fefe
-   Copyright (C) 2003, 2008, 2019 Andreas Franz Borchert
+   Small library of useful utilities
+   Copyright (C) 2003, 2008, 2019, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -30,13 +30,15 @@ hostport -- support of host/port tuple specifications according to RFC 2396
    typedef struct hostport {
       // parameters for socket()
       int domain;
+      int type;
       int protocol;
       // parameters for bind() or connect()
       struct sockaddr_storage addr;
       socklen_t namelen;
    } hostport;
 
-   bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport);
+   bool parse_hostport(const char* input, int type, in_port_t defaultport,
+      hostport* hp);
    bool get_hostport_of_peer(int socket, hostport* hp);
    bool print_sockaddr(outbuf* out, struct sockaddr* addr, socklen_t namelen);
    bool print_hostport(outbuf* out, hostport* hp);
@@ -68,9 +70,11 @@ Following syntax is supported:
 I<parse_hostport> expects in I<input> a string that conforms to
 the given syntax and returns, in case of success, a I<hostport>
 structure that can be used for subsequent calls of I<socket> and
-I<bind> or I<connect>. A default port can be specified using
-I<defaultport>. This port is taken if no port is specified within
-I<input>.
+I<bind> or I<connect>. The socket type can be specified
+in I<type>, e.g. by chosing I<SOCK_STREAM> or I<SOCK_DGRAM>.
+A zero value is permitted if the socket type remains unspecified.
+A default port can be specified using I<defaultport>. This port
+is taken if no port is specified within I<input>.
 
 In addition, a hostport specification is permitted that begins
 with '/' or '.'. This is then considered to be the path of a UNIX
@@ -236,10 +240,12 @@ static bool parse_port(inbuf* ibuf, in_port_t* port) {
    return true;
 }
 
-bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport) {
+bool parse_hostport(const char* input, int type, in_port_t defaultport,
+      hostport* hp) {
    if (input[0] == '/' || input[0] == '.') {
       /* special case: UNIX domain socket */
       hp->domain = PF_UNIX;
+      hp->type = type;
       hp->protocol = 0;
       struct sockaddr_un* sp = (struct sockaddr_un*) &hp->addr;
       sp->sun_family = AF_UNIX;
@@ -276,6 +282,8 @@ bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport) {
 	    sockaddr.sin_addr.s_addr = addr;
 
 	    hp->domain = PF_INET;
+	    hp->type = type;
+	    hp->protocol = 0;
 	    memcpy(&hp->addr, &sockaddr, sizeof(sockaddr));
 	    hp->namelen = sizeof(sockaddr);
 	 }
@@ -293,30 +301,35 @@ bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport) {
 	    sockaddr.sin6_addr = addr;
 
 	    hp->domain = PF_INET6;
+	    hp->type = type;
+	    hp->protocol = 0;
 	    memcpy(&hp->addr, &sockaddr, sizeof(sockaddr));
 	    hp->namelen = sizeof(sockaddr);
 	 }
 	 break;
       case HOSTNAME:
 	 {
-	    /* AI_ADDRCONFIG is important here as otherwise Solaris
-	       provides us with an IPv6 address even if we do not
-	       have IPv6 connectivity */
+	    /* AI_ADDRCONFIG is important here as otherwise we
+	       might end up with an address for which we have
+	       no connectivity */
 	    struct addrinfo hints = {
 	       .ai_family = AF_UNSPEC,
-	       .ai_flags = AI_NUMERICSERV | AI_CANONNAME | AI_ADDRCONFIG,
+	       .ai_flags = AI_ADDRCONFIG,
+	       .ai_socktype = type,
 	    };
 	    /* do not pass the port number per the second parameter
 	       of getaddrinfo as this does not appear to work under Solaris */
-	    struct addrinfo* aip;
+	    struct addrinfo* aip = 0;
 	    if (getaddrinfo(h.text.s, 0, &hints, &aip) || !aip) {
 	       stralloc_free(&h.text);
 	       return false;
 	    }
 	    /* take the first result of getaddrinfo */
 	    hp->domain = aip->ai_family;
+	    hp->type = type;
 	    memcpy(&hp->addr, aip->ai_addr, aip->ai_addrlen);
 	    hp->namelen = aip->ai_addrlen;
+	    hp->protocol = aip->ai_protocol;
 	    freeaddrinfo(aip);
 	    /* fix the port number */
 	    switch (hp->domain) {
@@ -343,8 +356,6 @@ bool parse_hostport(const char* input, hostport* hp, in_port_t defaultport) {
 	 break;
    }
    stralloc_free(&h.text);
-
-   hp->protocol = 0;
    return true;
 }
 

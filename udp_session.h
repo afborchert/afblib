@@ -38,7 +38,7 @@ typedef struct udp_connection {
 
 typedef void (*udp_connection_handler)(udp_connection* link);
 
-void run_udp_service(hostport hp,
+void run_udp_service(hostport* hp,
    int timeout, unsigned int max_retries,
    udp_connection_handler open_handler,
    udp_connection_handler input_handler,

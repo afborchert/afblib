@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities
-   Copyright (C) 2013, 2014 Andreas Franz Borchert
+   Copyright (C) 2013, 2014, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -106,7 +106,10 @@ static pid_t spawn_preforked_process(int sfd, int pipefds[2],
 void run_preforked_service(hostport* hp, session_handler handler,
       unsigned int number_of_processes, int argc, char** argv) {
    assert(number_of_processes > 0);
-   int sfd = socket(hp->domain, SOCK_STREAM, hp->protocol);
+   if (!hp->type) {
+      hp->type = SOCK_STREAM;
+   }
+   int sfd = socket(hp->domain, hp->type, hp->protocol);
    int optval = 1;
    if (sfd < 0 ||
         setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,

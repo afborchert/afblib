@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities
-   Copyright (C) 2003, 2008, 2013 Andreas Franz Borchert
+   Copyright (C) 2003, 2008, 2013, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -64,7 +64,10 @@ Andreas F. Borchert
  */
 void run_service(hostport* hp, session_handler handler,
       int argc, char** argv) {
-   int sfd = socket(hp->domain, SOCK_STREAM, hp->protocol);
+   if (!hp->type) {
+      hp->type = SOCK_STREAM;
+   }
+   int sfd = socket(hp->domain, hp->type, hp->protocol);
    int optval = 1;
    if (sfd < 0 ||
         setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR,
