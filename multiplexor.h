@@ -1,5 +1,5 @@
 /*
-   Small library of useful utilities based on the dietlib by fefe
+   Small library of useful utilities
    Copyright (C) 2003, 2008, 2013, 2019 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
