@@ -284,8 +284,8 @@ bool parse_hostport(const char* input, int type, in_port_t defaultport,
 	 break;
    }
 
-   /* do not pass the port number per the second parameter
-      of getaddrinfo as this does not appear to work under Solaris */
+   /* we do not pass the port number as we have it already
+      as a numeric value where getaddrinfo expects a string */
    if (getaddrinfo(h.text.s, 0, &hints, &aip) || !aip) {
       stralloc_free(&h.text);
       return false;
