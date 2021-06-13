@@ -35,17 +35,27 @@ hostport -- support of host/port tuple specifications according to RFC 2396
       // parameters for bind() or connect()
       struct sockaddr_storage addr;
       socklen_t namelen;
+      // next result for get_all_hostports, if any
+      struct hostport* next;
    } hostport;
 
-   bool parse_hostport(const char* input, int type, in_port_t defaultport,
+   bool get_hostport(const char* input, int type, in_port_t defaultport,
       hostport* hp);
+
+   bool get_all_hostports(const char* input, int type, in_port_t defaultport,
+   hostport* get_all_hostports(const char* input, int type,
+      in_port_t defaultport);
+   void free_hostport_list(struct hostport* hp);
+
    bool get_hostport_of_peer(int socket, hostport* hp);
+
    bool print_sockaddr(outbuf* out, struct sockaddr* addr, socklen_t namelen);
    bool print_hostport(outbuf* out, hostport* hp);
 
 =head1 DESCRIPTION
 
-I<parse_hostport> supports the textual specification of hosts,
+I<get_hostport> and I<get_all_hostports>
+support the textual specification of hosts,
 either in domain style or as numerical IP address, and an
 optional port number. The term hostport was coined within
 RFC 2396 which provides the generic syntax for Uniform
@@ -67,7 +77,8 @@ Following syntax is supported:
    hexpart         = hexseq | hexseq "::" [ hexseq ] | "::" [ hexseq ]
    hexseq          = { hexdigit } | hexseq ":" { hexdigit }
 
-I<parse_hostport> expects in I<input> a string that conforms to
+I<get_hostport> and I<get_all_hostports> expect
+in I<input> a string that conforms to
 the given syntax and returns, in case of success, a I<hostport>
 structure that can be used for subsequent calls of I<socket> and
 I<bind> or I<connect>. The socket type can be specified
@@ -79,6 +90,13 @@ is taken if no port is specified within I<input>.
 In addition, a hostport specification is permitted that begins
 with '/' or '.'. This is then considered to be the path of a UNIX
 domain socket.
+
+A request can possibly deliver more than one result.
+I<get_hostport>, if successful, stores the first result into I<hp>.
+Alternatively, I<get_all_hostports> can be used to obtain
+all results in the form of linear linked list, chained through
+the I<next> member of the I<hostport> data structure. Such a
+list can be free'd using I<free_hostport_list>.
 
 I<get_hostport_of_peer> may be called for connected sockets
 and returns, if successful, the peer's address of I<fd>
@@ -103,6 +121,7 @@ Andreas F. Borchert
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <stralloc.h>
 #include <string.h>
 #include <sys/un.h>
@@ -240,29 +259,36 @@ static bool parse_port(inbuf* ibuf, in_port_t* port) {
    return true;
 }
 
-bool parse_hostport(const char* input, int type, in_port_t defaultport,
+bool check_for_unix_domain_socket(const char* input, int type,
       hostport* hp) {
    if (input[0] == '/' || input[0] == '.') {
       /* special case: UNIX domain socket */
-      hp->domain = PF_UNIX;
-      hp->type = type;
-      hp->protocol = 0;
+      *hp = (hostport) {
+	 .domain = PF_UNIX,
+	 .type = type,
+	 .protocol = 0,
+	 .namelen = sizeof(struct sockaddr_un),
+      };
       struct sockaddr_un* sp = (struct sockaddr_un*) &hp->addr;
       sp->sun_family = AF_UNIX;
       strncpy(sp->sun_path, input, sizeof sp->sun_path);
-      hp->namelen = sizeof(struct sockaddr_un);
       return true;
    }
+   return false;
+}
+
+struct addrinfo* get_addrinfo_results(const char* input, int type,
+      in_port_t defaultport) {
    inbuf ibuf = {input, strlen(input), 0};
    host h = {0};
    if (!parse_host(&ibuf, &h)) {
-      stralloc_free(&h.text); return false;
+      stralloc_free(&h.text); return 0;
    }
    stralloc_0(&h.text); /* needed by inet_addr, inet_pton, and gethostbyname */
    in_port_t port;
    if (parse_delimiter(&ibuf, ':')) {
       if (!parse_port(&ibuf, &port)) {
-	 stralloc_free(&h.text); return false;
+	 stralloc_free(&h.text); return 0;
       }
    } else {
       port = defaultport;
@@ -284,42 +310,75 @@ bool parse_hostport(const char* input, int type, in_port_t defaultport,
 	 break;
    }
 
-   /* we do not pass the port number as we have it already
-      as a numeric value where getaddrinfo expects a string */
-   if (getaddrinfo(h.text.s, 0, &hints, &aip) || !aip) {
-      stralloc_free(&h.text);
-      return false;
+   char* service = 0;
+   stralloc service_sa = {0};
+   if (port) {
+      stralloc_catlong0(&service_sa, port, 1);
+      stralloc_0(&service_sa);
+      service = service_sa.s;
    }
-   /* take the first result of getaddrinfo */
-   hp->domain = aip->ai_family;
-   hp->type = type;
-   memcpy(&hp->addr, aip->ai_addr, aip->ai_addrlen);
-   hp->namelen = aip->ai_addrlen;
-   hp->protocol = aip->ai_protocol;
-   freeaddrinfo(aip);
-   /* fix the port number */
-   switch (hp->domain) {
-      case AF_INET:
-	 {
-	    struct sockaddr_in* sockp =
-	       (struct sockaddr_in*) &hp->addr;
-	    sockp->sin_port = htons(port);
-	 }
-	 break;
-      case AF_INET6:
-	 {
-	    struct sockaddr_in6* sockp =
-	       (struct sockaddr_in6*) &hp->addr;
-	    sockp->sin6_port = htons(port);
-	 }
-	 break;
-      default:
-	 /* unexpected */
-	 stralloc_free(&h.text);
-	 return false;
+   if (getaddrinfo(h.text.s, service, &hints, &aip) || !aip) {
+      aip = 0;
    }
+   stralloc_free(&service_sa);
    stralloc_free(&h.text);
+   return aip;
+}
+
+static void convert_ai_to_hp(struct addrinfo* aip, hostport* hp) {
+   *hp = (hostport) {
+      .domain = aip->ai_family,
+      .type = aip->ai_socktype,
+      .protocol = aip->ai_protocol,
+      .namelen = aip->ai_addrlen,
+      .next = 0,
+   };
+   memcpy(&hp->addr, aip->ai_addr, aip->ai_addrlen);
+}
+
+bool get_hostport(const char* input, int type, in_port_t defaultport,
+      hostport* hp) {
+   if (check_for_unix_domain_socket(input, type, hp)) {
+      return true;
+   }
+   struct addrinfo* aip = get_addrinfo_results(input, type, defaultport);
+   if (!aip) return false;
+   convert_ai_to_hp(aip, hp);
+   freeaddrinfo(aip);
    return true;
+}
+
+hostport* get_all_hostports(const char* input, int type,
+      in_port_t defaultport) {
+   hostport hp;
+   hostport* head = 0;
+   hostport* tail = 0;
+   if (check_for_unix_domain_socket(input, type, &hp)) {
+      head = malloc(sizeof(hostport));
+      *head = hp;
+   } else {
+      struct addrinfo* aip = get_addrinfo_results(input, type, defaultport);
+      for (struct addrinfo* res = aip; res; res = res->ai_next) {
+	 hostport* hpres = malloc(sizeof(hostport));
+	 convert_ai_to_hp(res, hpres);
+	 if (tail) {
+	    tail->next = hpres;
+	 } else {
+	    head = hpres;
+	 }
+	 tail = hpres;
+      }
+      freeaddrinfo(aip);
+   }
+   return head;
+}
+
+void free_hostport_list(struct hostport* hp) {
+   while (hp) {
+      hostport* member = hp;
+      hp = hp->next;
+      free(member);
+   }
 }
 
 bool get_hostport_of_peer(int socket, hostport* hp) {

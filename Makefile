@@ -101,10 +101,6 @@ shared/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
 static/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
 shared/inbuf.o: inbuf.c afblib/inbuf.h
 static/inbuf.o: inbuf.c afblib/inbuf.h
-shared/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
- afblib/outbuf_printf.h
-static/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
- afblib/outbuf_printf.h
 shared/preforked_service.o: preforked_service.c afblib/preforked_service.h \
  afblib/hostport.h afblib/outbuf.h
 static/preforked_service.o: preforked_service.c afblib/preforked_service.h \
@@ -119,6 +115,10 @@ shared/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
  afblib/outbuf.h
 static/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
  afblib/outbuf.h
+shared/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
+ afblib/outbuf_printf.h
+static/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
+ afblib/outbuf_printf.h
 shared/outbuf.o: outbuf.c afblib/outbuf.h
 static/outbuf.o: outbuf.c afblib/outbuf.h
 shared/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h

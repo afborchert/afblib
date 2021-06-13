@@ -160,7 +160,7 @@ over all sessions gets incremented.
       }
       char* hostport_string = *argv++; --argc;
       hostport hp;
-      if (!parse_hostport(hostport_string, SOCK_STREAM, 33013, &hp)) {
+      if (!get_hostport(hostport_string, SOCK_STREAM, 33013, &hp)) {
 	 fprintf(stderr, "%s: hostport expected\n", cmdname); exit(1);
       }
 
