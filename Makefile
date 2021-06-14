@@ -86,6 +86,7 @@ $(ManPages): $(WebDir)/%.html: %.c
 		   --infile=$< \
 		   --outfile=$@ \
 		   --title="$*(3)" \
+		   --quiet \
 		   --noindex
 
 Makefile:	$(Headers)
