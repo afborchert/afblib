@@ -144,6 +144,8 @@ shared/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
  afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
 static/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
  afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
+shared/concurrency.o: concurrency.c afblib/concurrency.h
+static/concurrency.o: concurrency.c afblib/concurrency.h
 shared/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
 static/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
 shared/ssystem.o: ssystem.c afblib/ssystem.h
