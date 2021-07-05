@@ -96,8 +96,6 @@ shared/shared_domain.o: shared_domain.c afblib/shared_cv.h afblib/shared_mutex.h
  afblib/shared_domain.h
 static/shared_domain.o: shared_domain.c afblib/shared_cv.h afblib/shared_mutex.h \
  afblib/shared_domain.h
-shared/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
-static/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
 shared/tokenizer.o: tokenizer.c afblib/strlist.h afblib/tokenizer.h
 static/tokenizer.o: tokenizer.c afblib/strlist.h afblib/tokenizer.h
 shared/service.o: service.c afblib/service.h afblib/hostport.h afblib/outbuf.h
@@ -124,14 +122,16 @@ static/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
  afblib/outbuf_printf.h
 shared/outbuf.o: outbuf.c afblib/outbuf.h
 static/outbuf.o: outbuf.c afblib/outbuf.h
-shared/mt-service.o: mt-service.c afblib/mt-service.h afblib/hostport.h \
- afblib/outbuf.h
-static/mt-service.o: mt-service.c afblib/mt-service.h afblib/hostport.h \
- afblib/outbuf.h
+shared/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
+static/shared_mutex.o: shared_mutex.c afblib/shared_mutex.h
 shared/strhash.o: strhash.c afblib/strhash.h
 static/strhash.o: strhash.c afblib/strhash.h
 shared/sliding_buffer.o: sliding_buffer.c afblib/sliding_buffer.h
 static/sliding_buffer.o: sliding_buffer.c afblib/sliding_buffer.h
+shared/mt_service.o: mt_service.c afblib/mt_service.h afblib/hostport.h \
+ afblib/outbuf.h
+static/mt_service.o: mt_service.c afblib/mt_service.h afblib/hostport.h \
+ afblib/outbuf.h
 shared/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 static/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 shared/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \

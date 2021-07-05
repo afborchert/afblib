@@ -24,7 +24,7 @@ run_mt_service -- run a TCP-based service on a given hostport using a thread per
 
 =head1 SYNOPSIS
 
-   #include <afblib/mt-service.h>
+   #include <afblib/mt_service.h>
 
    typedef void (*session_handler)(int fd, void* service_handle);
 
@@ -54,7 +54,7 @@ Andreas F. Borchert
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <afblib/mt-service.h>
+#include <afblib/mt_service.h>
 
 struct session_parameters {
    session_handler handler;

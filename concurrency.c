@@ -41,6 +41,8 @@ function possibly returns 0 if this information is not available.
 
 Andreas F. Borchert
 
+=cut
+
 */
 
 #include <pthread.h>
