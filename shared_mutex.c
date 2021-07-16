@@ -51,6 +51,9 @@ has not been created properly with I<shared_mutex_create>
 and the mutex variable must no longer be used once it
 has been free'd using I<shared_mutex_free>.
 
+I<shared_mutex_free> must not be called while the mutex
+is possibly locked.
+
 =head1 AUTHOR
 
 Andreas F. Borchert
