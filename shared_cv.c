@@ -70,6 +70,10 @@ Andreas F. Borchert
 */
 
 #include <errno.h>
+#if __APPLE__
+#include <stdlib.h>
+#include <unistd.h>
+#endif
 #include <afblib/shared_cv.h>
 
 bool shared_cv_create(shared_cv* cv) {
@@ -96,8 +100,46 @@ bool shared_cv_free(shared_cv* cv) {
    return true;
 }
 
+/* Unfortunately pthread_cond_wait on MacOS does not
+   work for shared condition variables as pthread_cond_s
+   has possibly a pointer to a mutex which was left
+   by another process (at an address which is invalid for us).
+
+   More information:
+      https://www.endurox.org/issues/512
+      https://github.com/endurox-dev/endurox/blob/master/libnstd/sys_emqueue.c
+         (document workaround)
+      https://stackoverflow.com/questions/60471009/condition-variables-and-shared-memory
+      (response by MadarsVi)
+
+   The structure pthread_cond_fix should be compared against
+   struct pthread_cond_s in
+      https://github.com/apple/darwin-libpthread/blob/main/src/types_internal.h
+*/
+
 bool shared_cv_wait(shared_cv* cv, shared_mutex* mutex) {
-   int ecode = pthread_cond_wait(cv, mutex);
+   int ecode;
+#if __APPLE__
+   struct pthread_cond_fix {
+      long sig;
+      uint32_t lock;
+      uint32_t unused;
+      void* busy;
+   };
+   int attempts = 0;
+   do {
+      if (attempts > 0) {
+	 if (attempts > 1) {
+	    usleep(rand() % 1000); /* less than 1us */
+	 }
+	 struct pthread_cond_fix* p = (struct pthread_cond_fix*) cv;
+	 p->busy = 0;
+      }
+      ecode = pthread_cond_wait(cv, mutex); ++attempts;
+   } while (ecode == EINVAL && attempts < 10);
+#else
+   ecode = pthread_cond_wait(cv, mutex);
+#endif
    if (ecode) {
       errno = ecode; return false;
    }
