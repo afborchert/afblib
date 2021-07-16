@@ -93,6 +93,8 @@ bool shared_cv_create(shared_cv* cv) {
 }
 
 bool shared_cv_free(shared_cv* cv) {
+   /* avoid to destroy a cv where someone is still waiting */
+   shared_cv_notify_all(cv);
    int ecode = pthread_cond_destroy(cv);
    if (ecode) {
       errno = ecode; return false;
