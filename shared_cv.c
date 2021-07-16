@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities
-   Copyright (C) 2019 Andreas Franz Borchert
+   Copyright (C) 2019, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -56,6 +56,11 @@ be likewise a shared one, created by I<shared_mutex_create>.
 I<shared_cv_notify_one> notifies one waiting process, if any,
 while I<shared_cv_notify_all> notifies all waiting processes.
 
+=head1 RETURN VALUES
+
+All functions return I<true> in case of success.
+In case of failures, I<errno> is set and I<false> returned.
+
 =head1 AUTHOR
 
 Andreas F. Borchert
@@ -64,34 +69,53 @@ Andreas F. Borchert
 
 */
 
+#include <errno.h>
 #include <afblib/shared_cv.h>
 
 bool shared_cv_create(shared_cv* cv) {
    pthread_condattr_t condattr;
    pthread_condattr_init(&condattr);
    bool ok = true;
-   if (pthread_condattr_setpshared(&condattr, PTHREAD_PROCESS_SHARED)) {
-      ok = false;
+   int ecode;
+   if ((ecode = pthread_condattr_setpshared(&condattr,
+	 PTHREAD_PROCESS_SHARED))) {
+      ok = false; errno = ecode;
    }
-   if (ok && pthread_cond_init(cv, &condattr)) {
-      ok = false;
+   if (ok && (ecode = pthread_cond_init(cv, &condattr))) {
+      ok = false; errno = ecode;
    }
    pthread_condattr_destroy(&condattr);
    return ok;
 }
 
 bool shared_cv_free(shared_cv* cv) {
-   return pthread_cond_destroy(cv) == 0;
+   int ecode = pthread_cond_destroy(cv);
+   if (ecode) {
+      errno = ecode; return false;
+   }
+   return true;
 }
 
 bool shared_cv_wait(shared_cv* cv, shared_mutex* mutex) {
-   return pthread_cond_wait(cv, mutex) == 0;
+   int ecode = pthread_cond_wait(cv, mutex);
+   if (ecode) {
+      errno = ecode; return false;
+   }
+   return true;
 }
 
 bool shared_cv_notify_one(shared_cv* cv) {
-   return pthread_cond_signal(cv) == 0;
+   int ecode = pthread_cond_signal(cv);
+   if (ecode) {
+      errno = ecode; return false;
+   }
+   return true;
 }
 
 bool shared_cv_notify_all(shared_cv* cv) {
-   return pthread_cond_broadcast(cv) == 0;
+   int ecode = pthread_cond_broadcast(cv);
+   if (ecode) {
+      errno = ecode; return false;
+   }
+   return true;
 }

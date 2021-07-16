@@ -54,6 +54,11 @@ has been free'd using I<shared_mutex_free>.
 I<shared_mutex_free> must not be called while the mutex
 is possibly locked.
 
+=head1 RETURN VALUES
+
+All functions return I<true> in case of success.
+In case of failures, I<errno> is set and I<false> returned.
+
 =head1 AUTHOR
 
 Andreas F. Borchert
@@ -62,6 +67,7 @@ Andreas F. Borchert
 
 */
 
+#include <errno.h>
 #include <pthread.h>
 #include <afblib/shared_mutex.h>
 
@@ -69,30 +75,45 @@ bool shared_mutex_create(shared_mutex* mutex) {
    pthread_mutexattr_t mxattr;
    pthread_mutexattr_init(&mxattr);
    bool ok = true;
-   if (pthread_mutexattr_setpshared(&mxattr, PTHREAD_PROCESS_SHARED)) {
-      ok = false;
+   int ecode;
+   if ((ecode = pthread_mutexattr_setpshared(&mxattr,
+	 PTHREAD_PROCESS_SHARED))) {
+      ok = false; errno = ecode;
    }
 #ifdef PTHREAD_MUTEX_ROBUST
    /* some platforms like MacOS do not support this attribute */
-   if (ok && pthread_mutexattr_setrobust(&mxattr, PTHREAD_MUTEX_ROBUST)) {
-      ok = false;
+   if (ok &&
+	 (ecode = pthread_mutexattr_setrobust(&mxattr, PTHREAD_MUTEX_ROBUST))) {
+      ok = false; errno = ecode;
    }
 #endif
-   if (ok && pthread_mutex_init(mutex, &mxattr)) {
-      ok = false;
+   if (ok && (ecode = pthread_mutex_init(mutex, &mxattr))) {
+      ok = false; errno = ecode;
    }
    pthread_mutexattr_destroy(&mxattr);
    return ok;
 }
 
 bool shared_mutex_free(shared_mutex* mutex) {
-   return pthread_mutex_destroy(mutex) == 0;
+   int ecode = pthread_mutex_destroy(mutex);
+   if (ecode) {
+      errno = ecode; return false;
+   }
+   return true;
 }
 
 bool shared_mutex_lock(shared_mutex* mutex) {
-   return pthread_mutex_lock(mutex) == 0;
+   int ecode = pthread_mutex_lock(mutex);
+   if (ecode) {
+      errno = ecode; return false;
+   }
+   return true;
 }
 
 bool shared_mutex_unlock(shared_mutex* mutex) {
-   return pthread_mutex_unlock(mutex) == 0;
+   int ecode = pthread_mutex_unlock(mutex);
+   if (ecode) {
+      errno = ecode; return false;
+   }
+   return true;
 }
