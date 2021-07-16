@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities
-   Copyright (C) 2019 Andreas Franz Borchert
+   Copyright (C) 2019, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -39,7 +39,9 @@ A shared mutex variable is one that can be used in a memory
 segment that is shared among multiple processes. By default,
 POSIX mutex variables must not be shared among multiple processes.
 Instead the special attribute I<PTHREAD_PROCESS_SHARED> has to
-be set to support this setup.
+be set to support this setup. In addition, I<PTHREAD_MUTEX_ROBUST>
+is enabled to make sure that a mutex lock is released when its
+holder terminates.
 
 I<shared_mutex_create> and I<shared_mutex_free> must be called
 by one process only, usually the process that configures the
@@ -65,6 +67,9 @@ bool shared_mutex_create(shared_mutex* mutex) {
    pthread_mutexattr_init(&mxattr);
    bool ok = true;
    if (pthread_mutexattr_setpshared(&mxattr, PTHREAD_PROCESS_SHARED)) {
+      ok = false;
+   }
+   if (ok && pthread_mutexattr_setrobust(&mxattr, PTHREAD_MUTEX_ROBUST)) {
       ok = false;
    }
    if (ok && pthread_mutex_init(mutex, &mxattr)) {
