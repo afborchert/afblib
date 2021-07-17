@@ -108,10 +108,8 @@ static/preforked_service.o: preforked_service.c afblib/preforked_service.h \
  afblib/hostport.h afblib/outbuf.h
 shared/shared_env.o: shared_env.c afblib/shared_env.h
 static/shared_env.o: shared_env.c afblib/shared_env.h
-shared/shared_rts.o: shared_rts.c afblib/shared_domain.h afblib/shared_env.h \
- afblib/shared_rts.h
-static/shared_rts.o: shared_rts.c afblib/shared_domain.h afblib/shared_env.h \
- afblib/shared_rts.h
+shared/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
+static/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
 shared/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
  afblib/outbuf.h
 static/udp_session.o: udp_session.c afblib/udp_session.h afblib/hostport.h \
@@ -132,6 +130,10 @@ shared/mt_service.o: mt_service.c afblib/mt_service.h afblib/hostport.h \
  afblib/outbuf.h
 static/mt_service.o: mt_service.c afblib/mt_service.h afblib/hostport.h \
  afblib/outbuf.h
+shared/shared_rts.o: shared_rts.c afblib/shared_domain.h afblib/shared_env.h \
+ afblib/shared_rts.h
+static/shared_rts.o: shared_rts.c afblib/shared_domain.h afblib/shared_env.h \
+ afblib/shared_rts.h
 shared/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 static/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 shared/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
@@ -150,8 +152,6 @@ static/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
  afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
 shared/concurrency.o: concurrency.c afblib/concurrency.h
 static/concurrency.o: concurrency.c afblib/concurrency.h
-shared/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
-static/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
 shared/ssystem.o: ssystem.c afblib/ssystem.h
 static/ssystem.o: ssystem.c afblib/ssystem.h
 shared/transmit_fd.o: transmit_fd.c afblib/transmit_fd.h

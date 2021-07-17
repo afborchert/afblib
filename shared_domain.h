@@ -40,4 +40,7 @@ bool sd_write(struct shared_domain* sd, unsigned int recipient,
    const void* buf, size_t nbytes);
 bool sd_read(struct shared_domain* sd, void* buf, size_t nbytes);
 
+bool sd_shutdown(struct shared_domain* sd);
+bool sd_terminating(struct shared_domain* sd);
+
 #endif

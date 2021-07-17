@@ -45,6 +45,9 @@ shared_domain -- communication domain based on shared memory
       const void* buf, size_t nbytes);
    bool sd_read(struct shared_domain* sd, void* buf, size_t nbytes);
 
+   bool sd_shutdown(struct shared_domain* sd);
+   bool sd_terminating(struct shared_domain* sd);
+
 =head1 DESCRIPTION
 
 A shared communication domain allows I<nofprocesses> processes
@@ -85,6 +88,12 @@ all processes of a shared communication domain. Each process
 who calls I<sd_barrier> is suspended until all processes
 have invoked I<sd_barrier>.
 
+The process which invoked I<sd_setup> is free to call
+I<sd_shutdown>. This will wake up all processes waiting
+in I<sd_barrier>, I<sd_write>, or I<sd_read> and causing
+them to fail. I<sd_terminating> can be used by all
+processes to check if I<sd_shutdown> has been called before.
+
 =head1 AUTHOR
 
 Andreas F. Borchert
@@ -102,6 +111,14 @@ Andreas F. Borchert
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#ifndef __STDC_NO_ATOMICS__
+   #include <stdatomic.h>
+   #ifdef ATOMIC_BOOL_LOCK_FREE
+      #define SD_ATOMIC
+   #endif
+#endif
+
 #include <afblib/shared_cv.h>
 #include <afblib/shared_domain.h>
 #include <afblib/shared_mutex.h>
@@ -118,6 +135,12 @@ struct shared_mem_header {
    /* support of shared extra space */
    size_t extra_space_size;
    ptrdiff_t extra_space_offset;
+   /* signal termination: set to 1 in case of a shutdown */
+#ifdef SD_ATOMIC
+   atomic_bool terminating;
+#else
+   volatile sig_atomic_t terminating;
+#endif
 };
 
 /* per-process buffer in the shared memory region */
@@ -252,6 +275,11 @@ static bool init_header(struct shared_mem_header* hp,
    hp->extra_space_offset = (ptrdiff_t)
       (compute_shared_mem_size(bufsize, nofprocesses, extra_space_size) -
       extra_space_size);
+#ifdef SD_ATOMIC
+   atomic_init(&hp->terminating, false);
+#else
+   hp->terminating = false;
+#endif
    return true;
 }
 
@@ -436,6 +464,7 @@ void* sd_get_extra_space(struct shared_domain* sd) {
 
 bool sd_barrier(struct shared_domain* sd) {
    struct shared_mem_header* hp = sd->header;
+   if (sd_terminating(sd)) return false;
    bool ok;
    ok = shared_mutex_lock(&hp->mutex);
    if (!ok) return false;
@@ -448,7 +477,8 @@ bool sd_barrier(struct shared_domain* sd) {
       ok = shared_cv_notify_all(&hp->wait_for_barrier);
    } else {
       while (ok && hp->sync_count > 0) {
-	 ok = shared_cv_wait(&hp->wait_for_barrier, &hp->mutex);
+	 ok = shared_cv_wait(&hp->wait_for_barrier, &hp->mutex) &&
+	    !sd_terminating(sd);
       }
    }
    return shared_mutex_unlock(&hp->mutex) && ok;
@@ -458,6 +488,7 @@ bool sd_write(struct shared_domain* sd, unsigned int recipient,
       const void* buf, size_t nbytes) {
    if (nbytes == 0) return true;
    if (recipient >= sd->nofprocesses) return false;
+   if (sd_terminating(sd)) return false;
    struct shared_mem_buffer* buffer = get_buffer(sd, recipient);
    bool ok;
    ok = shared_mutex_lock(&buffer->mutex);
@@ -466,7 +497,7 @@ bool sd_write(struct shared_domain* sd, unsigned int recipient,
       /* someone else is already writing to this buffer;
          we do not interfere here */
       ok = shared_cv_wait(&buffer->ready_for_writing_alone,
-	 &buffer->mutex);
+	 &buffer->mutex) && !sd_terminating(sd);
       if (!ok) goto unlock;
    }
    /* now we have exclusive write access to this buffer */
@@ -478,7 +509,7 @@ bool sd_write(struct shared_domain* sd, unsigned int recipient,
    while (written < nbytes) {
       while (buffer->filled == sd->bufsize) {
 	 ok = shared_cv_wait(&buffer->ready_for_writing,
-	    &buffer->mutex);
+	    &buffer->mutex) && !sd_terminating(sd);
 	 if (!ok) goto unlock;
       }
       size_t count = nbytes - written;
@@ -504,6 +535,7 @@ unlock:
 
 bool sd_read(struct shared_domain* sd, void* buf, size_t nbytes) {
    if (nbytes == 0) return true;
+   if (sd_terminating(sd)) return false;
    struct shared_mem_buffer* buffer = get_buffer(sd, sd->rank);
    bool ok;
    ok = shared_mutex_lock(&buffer->mutex);
@@ -513,7 +545,7 @@ bool sd_read(struct shared_domain* sd, void* buf, size_t nbytes) {
 	 this buffer; we must not interfere here until the other
 	 read operation is completed */
       ok = shared_cv_wait(&buffer->ready_for_reading_alone,
-	 &buffer->mutex);
+	 &buffer->mutex) && !sd_terminating(sd);
       if (!ok) goto unlock;
    }
    /* now we have exclusive read access to this buffer */
@@ -525,7 +557,7 @@ bool sd_read(struct shared_domain* sd, void* buf, size_t nbytes) {
    while (bytes_read < nbytes) {
       while (buffer->filled == 0) {
 	 ok = shared_cv_wait(&buffer->ready_for_reading,
-	    &buffer->mutex);
+	    &buffer->mutex) && !sd_terminating(sd);
 	 if (!ok) goto unlock;
       }
       size_t count = nbytes - bytes_read;
@@ -547,4 +579,43 @@ bool sd_read(struct shared_domain* sd, void* buf, size_t nbytes) {
 
 unlock:
    return shared_mutex_unlock(&buffer->mutex) && ok;
+}
+
+bool sd_shutdown(struct shared_domain* sd) {
+   if (!sd->creator) return false;
+   struct shared_mem_header* hp = sd->header;
+   bool already_terminating;
+#ifdef SD_ATOMIC
+   already_terminating = atomic_exchange(&hp->terminating, true);
+#else
+   already_terminating = hp->terminating;
+   hp->terminating = true;
+#endif
+   if (already_terminating) return false;
+   /* notify all condition variables:
+      all processes hanging in a shared_cv_wait will wake up,
+      see the terminating flag and will abort the current operation;
+      once this is done, we are safe to terminate these processes
+      without running the risk to kill them while waiting --
+      this would leave the condition variable in a possibly undefined state
+   */
+   bool ok = shared_cv_notify_all(&hp->wait_for_barrier);
+   for (unsigned int i = 0; i < sd->nofprocesses; ++i) {
+      struct shared_mem_buffer* buffer = get_buffer(sd, i);
+      ok = shared_cv_notify_all(&buffer->ready_for_reading) && ok;
+      ok = shared_cv_notify_all(&buffer->ready_for_writing) && ok;
+      ok = shared_cv_notify_all(&buffer->ready_for_writing_alone) && ok;
+      ok = shared_cv_notify_all(&buffer->ready_for_reading_alone) && ok;
+   }
+   return ok;
+}
+
+bool sd_terminating(struct shared_domain* sd) {
+   bool terminating;
+#ifdef SD_ATOMIC
+   terminating = atomic_load(&sd->header->terminating);
+#else
+   terminating = sd->header->terminating;
+#endif
+   return terminating;
 }

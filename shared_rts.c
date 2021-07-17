@@ -212,7 +212,7 @@ bool shared_rts_run(unsigned int nofprocesses,
       childs[rank] = pid;
    }
    pid_t pid; int wstat; unsigned int childs_left = nofprocesses;
-   bool aborted = false;
+   bool aborted = false; bool killed = false;
    while (childs_left && (pid = waitpid(-group, &wstat, 0)) > 0) {
       unsigned int rank = 0;
       while (rank < nofprocesses && childs[rank] != pid) {
@@ -223,8 +223,10 @@ bool shared_rts_run(unsigned int nofprocesses,
       if (!WIFEXITED(wstat) || WEXITSTATUS(wstat)) {
 	 /* abort remaining processes */
 	 aborted = true;
-	 if (childs_left) {
+	 if (childs_left && !killed) {
+	    sd_shutdown(sd);
 	    kill(-group, SIGTERM);
+	    killed = true;
 	 }
       }
    }
