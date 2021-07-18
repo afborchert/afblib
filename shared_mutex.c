@@ -157,29 +157,26 @@ bool shared_mutex_lock(shared_mutex* sm) {
       }
    }
    ecode = pthread_mutex_lock(&sm->mutex);
+   if (ecode) {
+      errno = ecode;
 #ifdef PTHREAD_MUTEX_ROBUST
-   if (ecode && ecode != EOWNERDEAD) {
+      if (ecode != EOWNERDEAD) {
+	 if (sm->block_signals) {
+	    pthread_sigmask(SIG_SETMASK, &prev_sigset, 0);
+	 }
+	 return false;
+      }
+#else
       if (sm->block_signals) {
 	 pthread_sigmask(SIG_SETMASK, &prev_sigset, 0);
       }
-      errno = ecode; return false;
+      return false;
+#endif
    }
    if (sm->block_signals) {
       sm->old_sigset = prev_sigset;
    }
    return ecode == 0;
-#else
-   if (ecode) {
-      if (sm->block_signals) {
-	 pthread_sigmask(SIG_SETMASK, &prev_sigset, 0);
-      }
-      errno = ecode; return false;
-   }
-   if (sm->block_signals) {
-      sm->old_sigset = prev_sigset;
-   }
-   return true;
-#endif
 }
 
 bool shared_mutex_unlock(shared_mutex* sm) {
