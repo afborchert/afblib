@@ -89,7 +89,15 @@ each other.
 I<sd_barrier> provides a simple synchronization mechanism among
 all processes of a shared communication domain. Each process
 who calls I<sd_barrier> is suspended until all processes
-have invoked I<sd_barrier>.
+have invoked I<sd_barrier>. Barriers should no longer be
+used as soon as one or more processes of the shared
+communication domain terminated. It is the responsibility
+of the process that created the shared communication domain
+to invoke I<sd_shutdown> as soon as one of the participating
+processes terminates. I<sd_barrier> returns I<false> if
+I<sd_shutdown> has already been invoked or if the associated
+shared mutex is found to be in an inconsistent state due to
+the termination of the holding process.
 
 The process which invoked I<sd_setup> is free to call
 I<sd_shutdown>. This will wake up all processes waiting
@@ -105,6 +113,7 @@ Andreas F. Borchert
 
 */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
@@ -135,7 +144,7 @@ struct shared_mem_header {
    /* support of barriers */
    shared_mutex mutex;
    shared_cv wait_for_barrier;
-   unsigned int sync_count; // for barrier
+   int sync_count; // for barrier; -1 in case of errors
    /* support of shared extra space */
    size_t extra_space_size;
    ptrdiff_t extra_space_offset;
@@ -481,12 +490,25 @@ bool sd_barrier(struct shared_domain* sd) {
    if (sd_terminating(sd)) return false;
    bool ok;
    ok = shared_mutex_lock(&hp->mutex);
-   if (!ok) return false;
-   if (sd_terminating(sd)) {
+   if (!ok) {
+      if (errno != EOWNERDEAD) {
+	 return false;
+      }
+      /* we can no longer be sure whether the sync_count is correct;
+         hence we wake up all involved to avoid an otherwise possible
+	 deadlock */
+      hp->sync_count = -1; /* mark barrier as failed */
+      shared_mutex_consistent(&hp->mutex);
+      shared_cv_notify_all(&hp->wait_for_barrier);
       shared_mutex_unlock(&hp->mutex);
       return false;
    }
-   if (hp->sync_count == 0) {
+   if (sd_terminating(sd)) {
+      goto fail;
+   }
+   if (hp->sync_count < 0) {
+      goto fail;
+   } else if (hp->sync_count == 0) {
       hp->sync_count = sd->nofprocesses - 1;
    } else {
       --hp->sync_count;
@@ -498,8 +520,15 @@ bool sd_barrier(struct shared_domain* sd) {
 	 ok = shared_cv_wait(&hp->wait_for_barrier, &hp->mutex) &&
 	    !sd_terminating(sd);
       }
+      if (hp->sync_count < 0) {
+	 goto fail;
+      }
    }
    return shared_mutex_unlock(&hp->mutex) && ok;
+
+fail:
+   shared_mutex_unlock(&hp->mutex);
+   return false;
 }
 
 bool sd_write(struct shared_domain* sd, unsigned int recipient,
@@ -510,7 +539,13 @@ bool sd_write(struct shared_domain* sd, unsigned int recipient,
    struct shared_mem_buffer* buffer = get_buffer(sd, recipient);
    bool ok;
    ok = shared_mutex_lock(&buffer->mutex);
-   if (!ok) return false;
+   if (!ok) {
+      if (errno != EOWNERDEAD) {
+	 return false;
+      }
+      /* we do not attempt to fix this */
+      goto unlock;
+   }
    if (sd_terminating(sd)) {
       shared_mutex_unlock(&buffer->mutex);
       return false;
@@ -561,7 +596,13 @@ bool sd_read(struct shared_domain* sd, void* buf, size_t nbytes) {
    struct shared_mem_buffer* buffer = get_buffer(sd, sd->rank);
    bool ok;
    ok = shared_mutex_lock(&buffer->mutex);
-   if (!ok) return false;
+   if (!ok) {
+      if (errno != EOWNERDEAD) {
+	 return false;
+      }
+      /* we do not attempt to fix this */
+      goto unlock;
+   }
    if (sd_terminating(sd)) {
       shared_mutex_unlock(&buffer->mutex);
       return false;

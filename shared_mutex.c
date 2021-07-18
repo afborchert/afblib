@@ -65,11 +65,23 @@ which would otherwise terminate the process while holding a mutex.
 Mutexes created by I<shared_mutex_create> are robust.
 Processes that terminate while having a shared mutex
 in a locked state, leaving it in a state which is considered
-inconsistent. All subsequent mutex operations will
-fail with I<errno> set to I<EOWNERDEAD>. This state
-can be fixed by declaring the mutex consistent again
-using I<shared_mutex_consistent>. Note that not all
-platforms support robust mutexes.
+inconsistent. The next I<shared_mutex_lock> operation that
+succeeds in acquiring the lock will return false and
+set I<errno> to I<EOWNERDEAD>. In this case, a consistency
+check should take place and I<shared_mutex_consistent>
+invoked for the mutex:
+
+   if (!shared_mutex_lock(&mutex)) {
+      if (errno != EOWNERDEAD) {
+	 return false; // some other error
+      }
+      // we got the lock but have to check for inconsistencies
+      shared_mutex_consistent(&mutex);
+   }
+   // critical region
+   shared_mutex_unlock(&mutex);
+
+Note that not all platforms support robust mutexes.
 
 I<shared_mutex_free> must not be called while the mutex
 is possibly locked.
@@ -145,6 +157,18 @@ bool shared_mutex_lock(shared_mutex* sm) {
       }
    }
    ecode = pthread_mutex_lock(&sm->mutex);
+#ifdef PTHREAD_MUTEX_ROBUST
+   if (ecode && ecode != EOWNERDEAD) {
+      if (sm->block_signals) {
+	 pthread_sigmask(SIG_SETMASK, &prev_sigset, 0);
+      }
+      errno = ecode; return false;
+   }
+   if (sm->block_signals) {
+      sm->old_sigset = prev_sigset;
+   }
+   return ecode == 0;
+#else
    if (ecode) {
       if (sm->block_signals) {
 	 pthread_sigmask(SIG_SETMASK, &prev_sigset, 0);
@@ -155,6 +179,7 @@ bool shared_mutex_lock(shared_mutex* sm) {
       sm->old_sigset = prev_sigset;
    }
    return true;
+#endif
 }
 
 bool shared_mutex_unlock(shared_mutex* sm) {
