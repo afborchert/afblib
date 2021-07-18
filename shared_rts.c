@@ -182,9 +182,14 @@ bool shared_rts_run(unsigned int nofprocesses,
    if (nofprocesses == 0) return true;
    if (bufsize == 0) return false;
    pid_t childs[nofprocesses];
+
+   sigset_t sigmask;
+   sigemptyset(&sigmask);
+   sigaddset(&sigmask, SIGTERM);
    struct shared_domain* sd = sd_setup_with_extra_space(bufsize,
-      nofprocesses, extra_space_size);
+      nofprocesses, extra_space_size, &sigmask);
    if (!sd) return false;
+
    struct shared_env params = {
       .name = sd_get_name(sd),
    };

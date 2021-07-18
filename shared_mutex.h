@@ -20,6 +20,7 @@
 #ifndef AFBLIB_SHARED_MUTEX_H
 #define AFBLIB_SHARED_MUTEX_H
 
+#include <signal.h>
 #include <stdbool.h>
 #include <pthread.h>
 
@@ -33,12 +34,21 @@
    all other processes must invoke only lock_shared_mutex
    and unlock_shared_mutex */
 
-typedef pthread_mutex_t shared_mutex;
+typedef struct {
+   pthread_mutex_t mutex;
+   sigset_t blocked_sigset;
+   sigset_t old_sigset;
+   bool block_signals;
+} shared_mutex;
 
 bool shared_mutex_create(shared_mutex* mutex);
+bool shared_mutex_create_with_sigmask(shared_mutex* mutex,
+   const sigset_t* sigmask);
 bool shared_mutex_free(shared_mutex* mutex);
+
 bool shared_mutex_lock(shared_mutex* mutex);
 bool shared_mutex_unlock(shared_mutex* mutex);
+
 bool shared_mutex_consistent(shared_mutex* mutex);
 
 #endif

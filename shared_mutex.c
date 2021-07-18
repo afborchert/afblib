@@ -83,7 +83,8 @@ Andreas F. Borchert
 #include <pthread.h>
 #include <afblib/shared_mutex.h>
 
-bool shared_mutex_create(shared_mutex* mutex) {
+bool shared_mutex_create_with_sigmask(shared_mutex* sm,
+      const sigset_t* sigmask) {
    pthread_mutexattr_t mxattr;
    pthread_mutexattr_init(&mxattr);
    bool ok = true;
@@ -99,40 +100,69 @@ bool shared_mutex_create(shared_mutex* mutex) {
       ok = false; errno = ecode;
    }
 #endif
-   if (ok && (ecode = pthread_mutex_init(mutex, &mxattr))) {
+   if (ok && (ecode = pthread_mutex_init(&sm->mutex, &mxattr))) {
       ok = false; errno = ecode;
    }
    pthread_mutexattr_destroy(&mxattr);
+   if (sigmask) {
+      sm->blocked_sigset = *sigmask;
+      sm->block_signals = true;
+   } else {
+      sigemptyset(&sm->blocked_sigset);
+      sm->block_signals = false;
+   }
+   sigemptyset(&sm->old_sigset);
    return ok;
 }
 
-bool shared_mutex_free(shared_mutex* mutex) {
-   int ecode = pthread_mutex_destroy(mutex);
+bool shared_mutex_create(shared_mutex* sm) {
+   return shared_mutex_create_with_sigmask(sm, 0);
+}
+
+bool shared_mutex_free(shared_mutex* sm) {
+   int ecode = pthread_mutex_destroy(&sm->mutex);
    if (ecode) {
       errno = ecode; return false;
    }
    return true;
 }
 
-bool shared_mutex_lock(shared_mutex* mutex) {
-   int ecode = pthread_mutex_lock(mutex);
+bool shared_mutex_lock(shared_mutex* sm) {
+   int ecode;
+   sigset_t prev_sigset;
+   if (sm->block_signals) {
+      ecode = pthread_sigmask(SIG_BLOCK, &sm->blocked_sigset, &prev_sigset);
+      if (ecode) {
+	 errno = ecode; return false;
+      }
+   }
+   ecode = pthread_mutex_lock(&sm->mutex);
    if (ecode) {
+      if (sm->block_signals) {
+	 pthread_sigmask(SIG_SETMASK, &prev_sigset, 0);
+      }
       errno = ecode; return false;
+   }
+   if (sm->block_signals) {
+      sm->old_sigset = prev_sigset;
    }
    return true;
 }
 
-bool shared_mutex_unlock(shared_mutex* mutex) {
-   int ecode = pthread_mutex_unlock(mutex);
+bool shared_mutex_unlock(shared_mutex* sm) {
+   int ecode = pthread_mutex_unlock(&sm->mutex);
    if (ecode) {
       errno = ecode; return false;
+   }
+   if (sm->block_signals) {
+      pthread_sigmask(SIG_SETMASK, &sm->old_sigset, 0);
    }
    return true;
 }
 
-bool shared_mutex_consistent(shared_mutex* mutex) {
+bool shared_mutex_consistent(shared_mutex* sm) {
 #ifdef PTHREAD_MUTEX_ROBUST
-   int ecode = pthread_mutex_consistent(mutex);
+   int ecode = pthread_mutex_consistent(&sm->mutex);
    if (ecode) {
       errno = ecode; return false;
    }

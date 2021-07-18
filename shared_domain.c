@@ -29,8 +29,9 @@ shared_domain -- communication domain based on shared memory
 
    struct shared_domain* sd_setup(size_t nbytes,
       unsigned int nofprocesses);
-   struct shared_domain* sd_setup_with_extra_space(size_t nbytes,
-      unsigned int nofprocesses, size_t extra_space_size);
+   struct shared_domain* sd_setup_with_extra_space(size_t bufsize,
+	 unsigned int nofprocesses, size_t extra_space_size,
+	 const sigset_t* sigmask);
    struct shared_domain* sd_connect(char* name, unsigned int rank);
    void sd_free(struct shared_domain* sd);
 
@@ -67,7 +68,9 @@ I<sd_setup_with_extra_space> works like I<sd_setup> but
 allocates a shared memory segment with extra space of
 I<extra_space_size> bytes. This extra space can be accessed
 through I<sd_get_extra_space> and its size can be retrieved
-using I<sd_get_extra_space_size>.
+using I<sd_get_extra_space_size>. If I<sigmask> is non-null,
+all included signals will be blocked whenever shared mutexes
+are locked.
 
 Other processes are free to connect to an already existing
 shared communication domain using I<sd_connect> where the I<name>
@@ -104,6 +107,7 @@ Andreas F. Borchert
 
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdalign.h>
 #include <stdio.h>
 #include <stddef.h>
@@ -202,9 +206,10 @@ static size_t compute_shared_mem_size(size_t bufsize,
 /* initialize a shared memory buffer;
    this must be called by one process only;
    if successful this has to be undone by free_buffer */
-static bool init_buffer(struct shared_mem_buffer* buffer) {
+static bool init_buffer(struct shared_mem_buffer* buffer,
+      const sigset_t* sigmask) {
    bool ok;
-   ok = shared_mutex_create(&buffer->mutex);
+   ok = shared_mutex_create_with_sigmask(&buffer->mutex, sigmask);
    if (!ok) return false;
    shared_cv* cvs[] = {
       &buffer->ready_for_reading,
@@ -259,9 +264,11 @@ static struct shared_mem_buffer* get_buffer(struct shared_domain* sd,
 /* initialize a shared_mem_header struct;
    this must be called by one process only */
 static bool init_header(struct shared_mem_header* hp,
-      unsigned int nofprocesses, size_t bufsize, size_t extra_space_size) {
+      unsigned int nofprocesses,
+      size_t bufsize, size_t extra_space_size,
+      const sigset_t* sigmask) {
    bool ok;
-   ok = shared_mutex_create(&hp->mutex);
+   ok = shared_mutex_create_with_sigmask(&hp->mutex, sigmask);
    if (!ok) return false;
    ok = shared_cv_create(&hp->wait_for_barrier);
    if (!ok) {
@@ -291,11 +298,12 @@ static bool free_header(struct shared_mem_header* hp) {
 }
 
 struct shared_domain* sd_setup(size_t bufsize, unsigned int nofprocesses) {
-   return sd_setup_with_extra_space(bufsize, nofprocesses, 0);
+   return sd_setup_with_extra_space(bufsize, nofprocesses, 0, 0);
 }
 
 struct shared_domain* sd_setup_with_extra_space(size_t bufsize,
-      unsigned int nofprocesses, size_t extra_space_size) {
+      unsigned int nofprocesses, size_t extra_space_size,
+      const sigset_t* sigmask) {
    char* path = strdup("/tmp/.SHARED-XXXXXX");
    int fd = mkstemp(path);
    if (fd < 0) {
@@ -319,7 +327,10 @@ struct shared_domain* sd_setup_with_extra_space(size_t bufsize,
    }
 
    struct shared_mem_header* header = (struct shared_mem_header*) sm;
-   if (!init_header(header, nofprocesses, bufsize, extra_space_size)) goto fail;
+   if (!init_header(header, nofprocesses,
+	 bufsize, extra_space_size, sigmask)) {
+      goto fail;
+   }
    struct shared_mem_buffer* first_buffer = (struct shared_mem_buffer*) (
       (char*) sm +
 	 alignto(sizeof(struct shared_mem_header),
@@ -330,7 +341,7 @@ struct shared_domain* sd_setup_with_extra_space(size_t bufsize,
       struct shared_mem_buffer* buffer = (struct shared_mem_buffer*) (
 	 (char*) first_buffer + i * buffer_stride
       );
-      if (!init_buffer(buffer)) {
+      if (!init_buffer(buffer, sigmask)) {
 	 for (unsigned int j = 0; j < i; ++j) {
 	    struct shared_mem_buffer* buffer = (struct shared_mem_buffer*) (
 	       (char*) first_buffer + i * buffer_stride
@@ -419,6 +430,9 @@ struct shared_domain* sd_connect(char* name, unsigned int rank) {
       .extra_space_ptr = extra_space_ptr,
       .extra_space_size = extra_space_size,
    };
+   if (sd_terminating(sd)) {
+      free(sd); goto fail;
+   }
    return sd;
 
 fail:
@@ -468,6 +482,10 @@ bool sd_barrier(struct shared_domain* sd) {
    bool ok;
    ok = shared_mutex_lock(&hp->mutex);
    if (!ok) return false;
+   if (sd_terminating(sd)) {
+      shared_mutex_unlock(&hp->mutex);
+      return false;
+   }
    if (hp->sync_count == 0) {
       hp->sync_count = sd->nofprocesses - 1;
    } else {
@@ -493,6 +511,10 @@ bool sd_write(struct shared_domain* sd, unsigned int recipient,
    bool ok;
    ok = shared_mutex_lock(&buffer->mutex);
    if (!ok) return false;
+   if (sd_terminating(sd)) {
+      shared_mutex_unlock(&buffer->mutex);
+      return false;
+   }
    while (buffer->writing) {
       /* someone else is already writing to this buffer;
          we do not interfere here */
@@ -540,6 +562,10 @@ bool sd_read(struct shared_domain* sd, void* buf, size_t nbytes) {
    bool ok;
    ok = shared_mutex_lock(&buffer->mutex);
    if (!ok) return false;
+   if (sd_terminating(sd)) {
+      shared_mutex_unlock(&buffer->mutex);
+      return false;
+   }
    while (buffer->reading) {
       /* another thread of the same process is already reading from
 	 this buffer; we must not interfere here until the other
@@ -599,13 +625,17 @@ bool sd_shutdown(struct shared_domain* sd) {
       without running the risk to kill them while waiting --
       this would leave the condition variable in a possibly undefined state
    */
+   shared_mutex_lock(&hp->mutex);
    bool ok = shared_cv_notify_all(&hp->wait_for_barrier);
+   shared_mutex_unlock(&hp->mutex);
    for (unsigned int i = 0; i < sd->nofprocesses; ++i) {
       struct shared_mem_buffer* buffer = get_buffer(sd, i);
+      shared_mutex_lock(&buffer->mutex);
       ok = shared_cv_notify_all(&buffer->ready_for_reading) && ok;
       ok = shared_cv_notify_all(&buffer->ready_for_writing) && ok;
       ok = shared_cv_notify_all(&buffer->ready_for_writing_alone) && ok;
       ok = shared_cv_notify_all(&buffer->ready_for_reading_alone) && ok;
+      shared_mutex_unlock(&buffer->mutex);
    }
    return ok;
 }

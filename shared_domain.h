@@ -20,12 +20,14 @@
 #ifndef AFBLIB_SHARED_DOMAIN_H
 #define AFBLIB_SHARED_DOMAIN_H
 
+#include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 struct shared_domain* sd_setup(size_t nbytes, unsigned int nofprocesses);
-struct shared_domain* sd_setup_with_extra_space(size_t nbytes,
-   unsigned int nofprocesses, size_t extra_space);
+struct shared_domain* sd_setup_with_extra_space(size_t bufsize,
+      unsigned int nofprocesses, size_t extra_space_size,
+      const sigset_t* sigmask);
 struct shared_domain* sd_connect(char* name, unsigned int rank);
 void sd_free(struct shared_domain* sd);
 

@@ -120,7 +120,7 @@ bool shared_cv_free(shared_cv* cv) {
       https://github.com/apple/darwin-libpthread/blob/main/src/types_internal.h
 */
 
-bool shared_cv_wait(shared_cv* cv, shared_mutex* mutex) {
+bool shared_cv_wait(shared_cv* cv, shared_mutex* sm) {
    int ecode;
 #if __APPLE__
    struct pthread_cond_fix {
@@ -140,10 +140,10 @@ bool shared_cv_wait(shared_cv* cv, shared_mutex* mutex) {
 	 struct pthread_cond_fix* p = (struct pthread_cond_fix*) cv;
 	 p->busy = 0;
       }
-      ecode = pthread_cond_wait(cv, mutex); ++attempts;
+      ecode = pthread_cond_wait(cv, &sm->mutex); ++attempts;
    } while (ecode == EINVAL && attempts < 10);
 #else
-   ecode = pthread_cond_wait(cv, mutex);
+   ecode = pthread_cond_wait(cv, &sm->mutex);
 #endif
    if (ecode) {
       errno = ecode; return false;
