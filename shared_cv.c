@@ -71,8 +71,9 @@ Andreas F. Borchert
 
 #include <errno.h>
 #if __APPLE__
+#include <stdint.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <time.h>
 #endif
 #include <afblib/shared_cv.h>
 
@@ -132,7 +133,9 @@ bool shared_cv_wait(shared_cv* cv, shared_mutex* mutex) {
    do {
       if (attempts > 0) {
 	 if (attempts > 1) {
-	    usleep(rand() % 1000); /* less than 1us */
+	    /* suspend for up to 10us */
+	    struct timespec delay = {.tv_nsec = 1 + rand() % 10000};
+	    nanosleep(&delay, 0);
 	 }
 	 struct pthread_cond_fix* p = (struct pthread_cond_fix*) cv;
 	 p->busy = 0;
