@@ -39,5 +39,6 @@ bool shared_mutex_create(shared_mutex* mutex);
 bool shared_mutex_free(shared_mutex* mutex);
 bool shared_mutex_lock(shared_mutex* mutex);
 bool shared_mutex_unlock(shared_mutex* mutex);
+bool shared_mutex_consistent(shared_mutex* mutex);
 
 #endif

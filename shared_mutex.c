@@ -33,15 +33,18 @@ shared_mutex -- POSIX mutex variable that is shared among multiple processes
    bool shared_mutex_lock(shared_mutex* mutex);
    bool shared_mutex_unlock(shared_mutex* mutex);
 
+   bool shared_mutex_consistent(shared_mutex* mutex);
+
 =head1 DESCRIPTION
 
 A shared mutex variable is one that can be used in a memory
-segment that is shared among multiple processes. By default,
+segment that is shared among multiple processes at possibly
+different addresses in their respective address spaces. By default,
 POSIX mutex variables must not be shared among multiple processes.
 Instead the special attribute I<PTHREAD_PROCESS_SHARED> has to
 be set to support this setup. In addition, I<PTHREAD_MUTEX_ROBUST>,
 if supported by the local platform, is enabled to make sure that
-a mutex lock is released when its holder terminates.
+a mutex lock is released when its holder terminates (see below).
 
 I<shared_mutex_create> and I<shared_mutex_free> must be called
 by one process only, usually the process that configures the
@@ -50,6 +53,14 @@ any of the other operations as long as the mutex variable
 has not been created properly with I<shared_mutex_create>
 and the mutex variable must no longer be used once it
 has been free'd using I<shared_mutex_free>.
+
+Mutexes created by I<shared_mutex_create> are robust.
+Processes that terminate while having a shared mutex
+in a locked state, leaving it in a state which is considered
+inconsistent. All subsequent mutex operations will
+fail with I<errno> set to I<EOWNERDEAD>. This state
+can be fixed by declaring the mutex consistent again
+using I<shared_mutex_consistent>.
 
 I<shared_mutex_free> must not be called while the mutex
 is possibly locked.
@@ -112,6 +123,14 @@ bool shared_mutex_lock(shared_mutex* mutex) {
 
 bool shared_mutex_unlock(shared_mutex* mutex) {
    int ecode = pthread_mutex_unlock(mutex);
+   if (ecode) {
+      errno = ecode; return false;
+   }
+   return true;
+}
+
+bool shared_mutex_consistent(shared_mutex* mutex) {
+   int ecode = pthread_mutex_consistent(mutex);
    if (ecode) {
       errno = ecode; return false;
    }
