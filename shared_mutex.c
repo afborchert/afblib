@@ -28,6 +28,8 @@ shared_mutex -- POSIX mutex variable that is shared among multiple processes
    #include <afblib/shared_mutex.h>
 
    bool shared_mutex_create(shared_mutex* mutex);
+   bool shared_mutex_create_with_sigmask(shared_mutex* sm,
+      const sigset_t* sigmask);
    bool shared_mutex_free(shared_mutex* mutex);
 
    bool shared_mutex_lock(shared_mutex* mutex);
@@ -53,6 +55,12 @@ any of the other operations as long as the mutex variable
 has not been created properly with I<shared_mutex_create>
 and the mutex variable must no longer be used once it
 has been free'd using I<shared_mutex_free>.
+
+I<shared_mutex_create_with_sigmask> can be used instead
+of I<shared_mutex_create>. The signals included in I<sigmask>,
+if non-null, will then be blocked whenever the mutex is locked.
+This is useful as a safeguard against signals like I<SIGTERM>
+which would otherwise terminate the process while holding a mutex.
 
 Mutexes created by I<shared_mutex_create> are robust.
 Processes that terminate while having a shared mutex

@@ -69,8 +69,8 @@ allocates a shared memory segment with extra space of
 I<extra_space_size> bytes. This extra space can be accessed
 through I<sd_get_extra_space> and its size can be retrieved
 using I<sd_get_extra_space_size>. If I<sigmask> is non-null,
-all included signals will be blocked whenever shared mutexes
-are locked.
+all included signals will be blocked whenever mutexes
+of the shared domain are locked.
 
 Other processes are free to connect to an already existing
 shared communication domain using I<sd_connect> where the I<name>
