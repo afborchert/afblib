@@ -60,7 +60,8 @@ in a locked state, leaving it in a state which is considered
 inconsistent. All subsequent mutex operations will
 fail with I<errno> set to I<EOWNERDEAD>. This state
 can be fixed by declaring the mutex consistent again
-using I<shared_mutex_consistent>.
+using I<shared_mutex_consistent>. Note that not all
+platforms support robust mutexes.
 
 I<shared_mutex_free> must not be called while the mutex
 is possibly locked.
@@ -130,9 +131,15 @@ bool shared_mutex_unlock(shared_mutex* mutex) {
 }
 
 bool shared_mutex_consistent(shared_mutex* mutex) {
+#ifdef PTHREAD_MUTEX_ROBUST
    int ecode = pthread_mutex_consistent(mutex);
    if (ecode) {
       errno = ecode; return false;
    }
    return true;
+#else
+   /* not supported on this platform */
+   errno = ENOTSUP;
+   return false;
+#endif
 }
