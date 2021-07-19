@@ -120,6 +120,12 @@ bool shared_mutex_create_with_sigmask(shared_mutex* sm,
       ok = false; errno = ecode;
    }
 #endif
+   /* enable error checks as this avoid undefined behavior */
+   if (ok &&
+	 (ecode = pthread_mutexattr_settype(&mxattr,
+	    PTHREAD_MUTEX_ERRORCHECK))) {
+      ok = false; errno = ecode;
+   }
    if (ok && (ecode = pthread_mutex_init(&sm->mutex, &mxattr))) {
       ok = false; errno = ecode;
    }
