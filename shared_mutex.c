@@ -126,12 +126,6 @@ bool shared_mutex_create_with_sigmask(shared_mutex* sm,
 	    PTHREAD_MUTEX_ERRORCHECK))) {
       ok = false; errno = ecode;
    }
-   /* set PTHREAD_PRIO_INHERIT */
-   if (ok &&
-	 (ecode = pthread_mutexattr_setprotocol(&mxattr,
-	    PTHREAD_PRIO_INHERIT))) {
-      ok = false; errno = ecode;
-   }
    if (ok && (ecode = pthread_mutex_init(&sm->mutex, &mxattr))) {
       ok = false; errno = ecode;
    }
