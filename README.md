@@ -7,7 +7,7 @@ Included is
    ([_inbuf_](https://github.com/afborchert/afblib/wiki/inbuf) and
    [_outbuf_](https://github.com/afborchert/afblib/wiki/outbuf)) with
    some functions based on that including
-   [_inbuf\_scan](https://github.com/afborchert/afblib/wiki/inbuf_scan)
+   [_inbuf\_scan_](https://github.com/afborchert/afblib/wiki/inbuf_scan)
    that supports regular-expression-based input parsing,
  * various options for network services with parallel sessions, and
  * support for communication and synchronization among multiple
