@@ -26,23 +26,10 @@ ifeq ($(System), Darwin)
 #  - by default the current directory is chosen
 LIBDIR :=	$(shell pwd)
 # configuration for brew:
-ifneq ($(wildcard /opt/homebrew/.*),)
-BREW_ROOT :=	/opt/homebrew
-else
-BREW_ROOT :=	/usr/local/opt
-endif
-ifneq ($(wildcard $(BREW_ROOT)/libowfat/.*),)
-LIBOWFAT_ROOT := $(BREW_ROOT)/libowfat
-else
-LIBOWFAT_ROOT := $(BREW_ROOT)
-endif
+LIBOWFAT_ROOT := $(shell brew --prefix libowfat)
 LIBOWFAT_INCL := $(LIBOWFAT_ROOT)/include/libowfat
 LIBOWFAT_LIBD := $(LIBOWFAT_ROOT)/lib
-ifneq ($(wildcard $(BREW_ROOT)/pcre/.*),)
-LIBPCRE_ROOT :=	$(BREW_ROOT)/pcre
-else
-LIBPCRE_ROOT :=	$(BREW_ROOT)
-endif
+LIBPCRE_ROOT :=	$(shell brew --prefix pcre)
 LIBPCRE_INCL :=	$(LIBPCRE_ROOT)/include
 LIBPCRE_LIBD := $(LIBPCRE_ROOT)/lib
 #
