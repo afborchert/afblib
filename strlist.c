@@ -55,7 +55,7 @@ an initializer is to be used:
 
 I<strlist> objects grow by themselves. However, if the number of
 elements can be estimated or is known, it might be preferably to
-use I<strlist_read> to assure that there is space ready allocated
+use I<strlist_ready> to assure that there is space ready allocated
 for at least I<len> entries. I<strlist_readyplus> works similar
 to I<strlist_ready> but adds implicitly the current number of
 list members to I<len>.
