@@ -33,7 +33,7 @@ concurrency -- retrieve hardware concurrency
 
 I<get_hardware_concurrency> returns the number of concurrent
 threads supported by the current system. This function strives to
-return a similar value like std::thread::hardware_concurrency()
+return a similar value like I<std::thread::hardware_concurrency()>
 in C++. As there is no portable approach to do this, this
 function possibly returns 0 if this information is not available.
 

@@ -1,6 +1,6 @@
 /*
    Small library of useful utilities
-   Copyright (C) 2003, 2008 Andreas Franz Borchert
+   Copyright (C) 2003, 2008, 2021 Andreas Franz Borchert
    --------------------------------------------------------------------
    This library is free software; you can redistribute it and/or modify
    it under the terms of the GNU Library General Public License as
@@ -24,7 +24,9 @@ ssystem -- secure variant of system()
 
 =head1 SYNOPSIS
 
-   int ssystem(char** argv)
+   #include <afblib/ssystem.h>
+
+   int ssystem(char* argv[]);
 
 =head1 DESCRIPTION
 
@@ -65,25 +67,33 @@ Andreas Borchert
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <afblib/ssystem.h>
 
-int ssystem(char** argv) {
-   void (*handler_sigint)(int) = signal(SIGINT, SIG_IGN);
-   void (*handler_sigquit)(int) = signal(SIGQUIT, SIG_IGN);
-   pid_t son = fork();
-
-   if (son == -1) return -1;
+int ssystem(char* argv[]) {
+   struct sigaction sigact = { .sa_handler = SIG_IGN };
+   struct sigaction sigact_sigint;
+   struct sigaction sigact_sigquit;
+   if (sigaction(SIGINT, &sigact, &sigact_sigint) < 0 ||
+	 sigaction(SIGQUIT, &sigact, &sigact_sigquit) < 0) {
+      return -1;
+   }
    fflush(0); /* flush all streams */
-   if (son == 0) {
-      signal(SIGINT, handler_sigint);
-      signal(SIGQUIT, handler_sigquit);
+
+   pid_t child = fork();
+   if (child == -1) return -1;
+   if (child == 0) {
+      sigaction(SIGINT, &sigact_sigint, 0);
+      sigaction(SIGQUIT, &sigact_sigquit, 0);
       execvp(argv[0], argv);
       exit(255);
    }
    int stat;
-   pid_t pid = waitpid(son, &stat, 0);
-   signal(SIGINT, handler_sigint);
-   signal(SIGQUIT, handler_sigquit);
-   if (pid != son) return -1;
+   pid_t pid = waitpid(child, &stat, 0);
+
+   sigaction(SIGINT, &sigact_sigint, 0);
+   sigaction(SIGQUIT, &sigact_sigint, 0);
+
+   if (pid != child) return -1;
    return stat;
 }

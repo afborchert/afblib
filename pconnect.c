@@ -59,18 +59,18 @@ I<pconnect2> works similar to I<pconnect> but connects in the spawned off
 process I<fd> to the remaining standard input or output file descriptor
 not connected to the pipeline. This allows pipelines to be chained.
 However, I<fd> needs to be shared using I<pshare> (see below) if
-this file descriptor belong to another pipe end returned by
+this file descriptor belongs to another pipe end returned by
 I<pconnect> or I<pconnect2>.
 
 All pipe ends returned by I<pconnect> and I<pconnect2> are protected
 against being inherited through I<fork> or I<exec>. This protection
 can be lifted using I<pshare>. This is necessary if a pipe end
-is to be passed on to a child. In case of a shared pipe end
+is to be inherited to forked-off process. In case of a shared pipe end,
 I<pcut> and I<pwait> can be used instead of I<phangup>. I<pcut>
 closes the file descriptor associated with the pipe end while
 I<pwait> waits for the associated process to terminate.
 This separation allows I<pcut> to be invoked immediately after
-the I<fork> on the parent side.
+the invocation of I<fork> on the parent side.
 
 =head1 DIAGNOSTICS
 
