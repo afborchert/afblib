@@ -3,7 +3,7 @@ System :=	$(shell uname)
 ifeq ($(System), SunOS)
 CC :=		gcc
 CPPFLAGS :=	-I. -D_XOPEN_SOURCE=600 -D__EXTENSIONS__
-CFLAGS :=	-std=gnu11 -Wall -Wno-parentheses -g
+CFLAGS :=	-std=gnu11 -Wall -Wno-parentheses -g -O3
 LDLIBS :=	-lowfat -lsocket -lnsl -lpcre
 SharedLib :=	libafb.so.0
 CFLAGS_SHARED := -fPIC
@@ -13,7 +13,7 @@ endif
 ifeq ($(System), Linux)
 CC :=		gcc
 CPPFLAGS :=	-I.
-CFLAGS :=	-pthread -std=gnu11 -Wall -Wno-parentheses -g
+CFLAGS :=	-pthread -std=gnu11 -Wall -Wno-parentheses -g -O3
 LDLIBS :=	-lowfat -lpcre
 SharedLib :=	libafb.so.0
 CFLAGS_SHARED := -fPIC
@@ -35,7 +35,7 @@ LIBPCRE_LIBD := $(LIBPCRE_ROOT)/lib
 #
 CC :=		gcc
 CPPFLAGS :=	-I. -I$(LIBOWFAT_INCL) -I$(LIBPCRE_INCL)
-CFLAGS :=	-std=gnu11 -Wall -Wno-parentheses -g
+CFLAGS :=	-std=gnu11 -Wall -Wno-parentheses -g -O3
 LDLIBS :=	-L$(LIBOWFAT_LIBD) -L$(LIBPCRE_LIBD) -lowfat -lpcre
 SharedLib :=	libafb.dylib
 CFLAGS_SHARED := -fPIC -fno-common
@@ -90,6 +90,8 @@ shared/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
  afblib/outbuf_printf.h
 static/hostport.o: hostport.c afblib/hostport.h afblib/outbuf.h \
  afblib/outbuf_printf.h
+shared/inbuf.o: inbuf.c afblib/inbuf.h
+static/inbuf.o: inbuf.c afblib/inbuf.h
 shared/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
 static/inbuf_readline.o: inbuf_readline.c afblib/inbuf_readline.h afblib/inbuf.h
 shared/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
@@ -98,8 +100,6 @@ static/inbuf_sareadline.o: inbuf_sareadline.c afblib/inbuf_sareadline.h \
  afblib/inbuf.h
 shared/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
 static/inbuf_scan.o: inbuf_scan.c afblib/inbuf_scan.h afblib/inbuf.h
-shared/inbuf.o: inbuf.c afblib/inbuf.h
-static/inbuf.o: inbuf.c afblib/inbuf.h
 shared/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
  afblib/outbuf.h afblib/multiplexor.h afblib/sliding_buffer.h
 static/mpx_session.o: mpx_session.c afblib/mpx_session.h afblib/hostport.h \
@@ -110,10 +110,10 @@ static/mt_service.o: mt_service.c afblib/mt_service.h afblib/hostport.h \
  afblib/outbuf.h
 shared/multiplexor.o: multiplexor.c afblib/multiplexor.h
 static/multiplexor.o: multiplexor.c afblib/multiplexor.h
-shared/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h
-static/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h
 shared/outbuf.o: outbuf.c afblib/outbuf.h
 static/outbuf.o: outbuf.c afblib/outbuf.h
+shared/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h
+static/outbuf_printf.o: outbuf_printf.c afblib/outbuf_printf.h afblib/outbuf.h
 shared/pconnect.o: pconnect.c afblib/pconnect.h
 static/pconnect.o: pconnect.c afblib/pconnect.h
 shared/preforked_service.o: preforked_service.c afblib/preforked_service.h \

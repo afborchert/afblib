@@ -271,7 +271,11 @@ bool check_for_unix_domain_socket(const char* input, int type,
       };
       struct sockaddr_un* sp = (struct sockaddr_un*) &hp->addr;
       sp->sun_family = AF_UNIX;
-      strncpy(sp->sun_path, input, sizeof sp->sun_path);
+      size_t pathlen = sizeof sp->sun_path;
+      /* make sure that sun_path is 0-terminated as
+	 some systems like Linux require this */
+      sp->sun_path[pathlen-1] = 0;
+      strncpy(sp->sun_path, input, pathlen-1);
       return true;
    }
    return false;
